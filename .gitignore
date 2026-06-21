@@ -1,0 +1,27 @@
+# Large BELABOX image artifacts
+*.img
+*.img.zip
+*.iso
+*.xz
+*.7z
+*.zip
+
+# Extracted image folders in this workspace
+belabox_orangepi_5_plus-*/
+
+# Local Codex/workspace state
+.agents/
+.codex/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
