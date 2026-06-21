@@ -63,12 +63,12 @@ prompt_for_vps_host() {
   echo "Bitte gib die IP-Adresse oder Domain deines VPS ein."
 
   while [ -z "$VPS_HOST" ]; do
-    if [ ! -t 0 ]; then
+    if [ ! -r /dev/tty ]; then
       echo "Fehlt: VPS-IP oder Domain. Nutze z.B. --vps 158.180.35.14" >&2
       exit 1
     fi
 
-    read -rp "VPS-IP oder Domain: " VPS_HOST
+    read -rp "VPS-IP oder Domain: " VPS_HOST < /dev/tty
     VPS_HOST="${VPS_HOST//[[:space:]]/}"
   done
 }
@@ -109,10 +109,6 @@ if [ "${EUID}" -ne 0 ]; then
 fi
 
 prompt_for_vps_host
-
-if [ -z "$PUBLIC_URL" ]; then
-  PUBLIC_URL="http://${VPS_HOST}/"
-fi
 
 have_cmd() {
   command -v "$1" >/dev/null 2>&1
@@ -230,7 +226,8 @@ install_key_on_vps() {
   key_b64="$(printf '%s' "$authorized_line" | base64 | tr -d '\n')"
 
   echo "Trage den Tunnel-Key auf dem VPS ein. Falls gefragt: VPS-${VPS_ADMIN_USER}-Passwort eingeben."
-  ssh -p "$VPS_SSH_PORT" -o StrictHostKeyChecking=accept-new "${VPS_ADMIN_USER}@${VPS_HOST}" \
+  local remote_output
+  remote_output="$(ssh -p "$VPS_SSH_PORT" -o StrictHostKeyChecking=accept-new "${VPS_ADMIN_USER}@${VPS_HOST}" \
     "KEY_B64='${key_b64}' TUNNEL_USER='${TUNNEL_USER}' bash -s" <<'REMOTE_SCRIPT'
 set -euo pipefail
 SUDO="sudo"
@@ -256,7 +253,29 @@ $SUDO awk '!seen[$0]++' "$AUTH_FILE" | $SUDO tee "${AUTH_FILE}.tmp" >/dev/null
 $SUDO mv "${AUTH_FILE}.tmp" "$AUTH_FILE"
 $SUDO chown "$TUNNEL_USER:$TUNNEL_USER" "$AUTH_FILE"
 $SUDO chmod 600 "$AUTH_FILE"
+
+if [ -r /etc/belabox-remote-ui/public_url ]; then
+  printf 'BELAREMOTE_PUBLIC_URL=%s\n' "$(cat /etc/belabox-remote-ui/public_url)"
+fi
 REMOTE_SCRIPT
+)"
+
+  printf '%s\n' "$remote_output" | sed '/^BELAREMOTE_PUBLIC_URL=/d'
+
+  if [ -z "$PUBLIC_URL" ]; then
+    PUBLIC_URL="$(printf '%s\n' "$remote_output" | sed -n 's/^BELAREMOTE_PUBLIC_URL=//p' | tail -n 1)"
+  fi
+}
+
+finalize_public_url() {
+  if [ -n "$PUBLIC_URL" ]; then
+    return
+  fi
+
+  PUBLIC_URL="http://${VPS_HOST}/"
+  echo "Hinweis: Konnte keinen generierten Link vom VPS lesen." >&2
+  echo "Pruefe auf dem VPS: cat /etc/belabox-remote-ui/public_url" >&2
+  echo "Oder starte das Client-Script mit --public-url <URL>." >&2
 }
 
 write_proxy() {
@@ -277,7 +296,7 @@ const targetHost = process.env.TARGET_HOST || '127.0.0.1';
 const targetPort = Number(process.env.TARGET_PORT || '80');
 
 const wsFrom = 'new WebSocket("ws://" + window.location.host)';
-const wsTo = 'new WebSocket((window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host)';
+const wsTo = 'new WebSocket((window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + window.location.pathname)';
 
 function copyHeaders(headers) {
   const out = {...headers};
@@ -459,6 +478,7 @@ apt_install_if_missing ca-certificates curl openssh-client autossh nodejs
 setup_local_user_and_dirs
 generate_ssh_key
 install_key_on_vps
+finalize_public_url
 
 if systemctl list-unit-files 2>/dev/null | grep -q '^belaUI\.socket'; then
   systemctl start belaUI.socket >/dev/null 2>&1 || true

@@ -21,6 +21,11 @@ SSH_PORT="22"
 SERVER_NAME="_"
 ENABLE_UFW="1"
 KEEP_DEFAULT_SITE="0"
+CONFIG_DIR="/etc/belabox-remote-ui"
+PUBLIC_PATH_FILE="${CONFIG_DIR}/public_path"
+PUBLIC_URL_FILE="${CONFIG_DIR}/public_url"
+PUBLIC_PATH=""
+REGENERATE_LINK="0"
 
 usage() {
   cat <<EOF
@@ -35,6 +40,8 @@ Optionen:
   --tunnel-port PORT    Interner Reverse-Tunnel-Port (Standard: 18080)
   --ssh-port PORT       SSH-Port des VPS fuer Firewall-Freigabe (Standard: 22)
   --tunnel-user USER    SSH-Tunnel-User (Standard: belabox-tunnel)
+  --public-path PATH    Fester geheimer URL-Pfad, sonst automatisch erzeugt
+  --regenerate-link     Neuen geheimen URL-Pfad erzeugen
   --no-ufw              UFW nicht konfigurieren/aktivieren
   --keep-default-site   Nginx default site nicht deaktivieren
   -h, --help            Hilfe anzeigen
@@ -57,6 +64,10 @@ while [ "$#" -gt 0 ]; do
       SSH_PORT="$2"; shift 2 ;;
     --tunnel-user)
       TUNNEL_USER="$2"; shift 2 ;;
+    --public-path)
+      PUBLIC_PATH="$2"; shift 2 ;;
+    --regenerate-link)
+      REGENERATE_LINK="1"; shift ;;
     --no-ufw)
       ENABLE_UFW="0"; shift ;;
     --keep-default-site)
@@ -121,6 +132,45 @@ get_public_ip() {
   echo "$ip"
 }
 
+generate_token() {
+  if have_cmd openssl; then
+    openssl rand -hex 18
+    return
+  fi
+
+  set +o pipefail
+  local token
+  token="$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 36)"
+  set -o pipefail
+  echo "$token"
+}
+
+prepare_public_path() {
+  mkdir -p "$CONFIG_DIR"
+
+  PUBLIC_PATH="${PUBLIC_PATH#/}"
+  PUBLIC_PATH="${PUBLIC_PATH%/}"
+
+  if [ -n "$PUBLIC_PATH" ]; then
+    :
+  elif [ "$REGENERATE_LINK" = "0" ] && [ -s "$PUBLIC_PATH_FILE" ]; then
+    PUBLIC_PATH="$(cat "$PUBLIC_PATH_FILE")"
+  else
+    PUBLIC_PATH="r/$(generate_token)"
+  fi
+
+  case "$PUBLIC_PATH" in
+    *[!A-Za-z0-9_/-]*|""|/*|*//*)
+      echo "Ungueltiger public path: ${PUBLIC_PATH}" >&2
+      echo "Erlaubt sind Buchstaben, Zahlen, _, - und einzelne /." >&2
+      exit 1
+      ;;
+  esac
+
+  printf '%s\n' "$PUBLIC_PATH" > "$PUBLIC_PATH_FILE"
+  chmod 600 "$PUBLIC_PATH_FILE"
+}
+
 setup_tunnel_user() {
   local home_dir="/var/lib/${TUNNEL_USER}"
 
@@ -169,7 +219,16 @@ server {
     listen ${PUBLIC_PORT} default_server;
     server_name ${SERVER_NAME};
 
-    location / {
+    location = / {
+        return 404;
+    }
+
+    location = /${PUBLIC_PATH} {
+        return 302 /${PUBLIC_PATH}/;
+    }
+
+    location /${PUBLIC_PATH}/ {
+        rewrite ^/${PUBLIC_PATH}/?(.*)$ /\$1 break;
         proxy_pass http://127.0.0.1:${TUNNEL_PORT};
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -230,6 +289,7 @@ EOF
 
 validate_os
 apt_install_if_missing ca-certificates curl openssh-server nginx
+prepare_public_path
 setup_tunnel_user
 configure_sshd
 configure_nginx
@@ -245,10 +305,13 @@ if [ -z "$PUBLIC_HOST" ]; then
 fi
 
 if [ "$PUBLIC_PORT" = "80" ]; then
-  PUBLIC_URL="http://${PUBLIC_HOST}/"
+  PUBLIC_URL="http://${PUBLIC_HOST}/${PUBLIC_PATH}/"
 else
-  PUBLIC_URL="http://${PUBLIC_HOST}:${PUBLIC_PORT}/"
+  PUBLIC_URL="http://${PUBLIC_HOST}:${PUBLIC_PORT}/${PUBLIC_PATH}/"
 fi
+
+printf '%s\n' "$PUBLIC_URL" > "$PUBLIC_URL_FILE"
+chmod 644 "$PUBLIC_URL_FILE"
 
 cat <<EOF
 
