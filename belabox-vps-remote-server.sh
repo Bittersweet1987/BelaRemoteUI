@@ -23,7 +23,7 @@ SSH_PORT="22"
 SERVER_NAME="_"
 SERVER_NAME_SET="0"
 ENABLE_UFW="1"
-KEEP_DEFAULT_SITE="1"
+KEEP_DEFAULT_SITE="0"
 CONFIG_DIR="/etc/belabox-remote-ui"
 PROFILES_DIR="${CONFIG_DIR}/profiles"
 SERVER_CONFIG_FILE="${CONFIG_DIR}/server.conf"
@@ -480,9 +480,14 @@ EOF
 }
 
 write_nginx_config() {
-  local dir token port path
+  local dir token port path listen_suffix
   echo "Konfiguriere Nginx als oeffentlichen Empfaenger..."
   rm -f /etc/nginx/conf.d/belabox-remote-ui-websocket.conf
+
+  listen_suffix=" default_server"
+  if [ "$KEEP_DEFAULT_SITE" = "1" ] && [ "$PUBLIC_PORT" = "80" ]; then
+    listen_suffix=""
+  fi
 
   {
     cat <<'EOF'
@@ -548,7 +553,7 @@ EOF
   {
     cat <<EOF
 server {
-    listen ${PUBLIC_PORT};
+    listen ${PUBLIC_PORT}${listen_suffix};
     server_name ${SERVER_NAME};
 
 EOF
