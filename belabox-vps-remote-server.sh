@@ -75,7 +75,7 @@ Neustart:
   --no-reboot             Nach erfolgreicher Installation nicht nach Reboot fragen
 
 Beispiele:
-  curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile belabox-wohnzimmer
+  curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
   curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile belabox2 --domain belabox.example.com
   curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --list
   curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --delete-profile belabox2
@@ -813,7 +813,7 @@ Naechster Schritt auf der BELABOX:
 Wichtig: Diese komplette Curl-Zeile auf der BELABOX ausfuehren.
 
 Weitere Profile anlegen:
-  curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash -s -- --profile NAME
+  curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash
 
 Profile anzeigen:
   belabox-remote-vps-status

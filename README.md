@@ -47,10 +47,10 @@ Wenn eine bestehende RTMP-Nginx-Konfiguration erkannt wird, weicht BelaRemoteUI 
 
 ### Schnellstart
 
-**1. Auf dem VPS ausführen:**
+**1. Auf dem VPS ausführen und Profilnamen eingeben:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile DEIN_PROFILNAME
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
 ```
 
 
@@ -68,10 +68,10 @@ Das BELABOX-Script installiert fehlende Pakete inklusive `curl`, `nodejs`, `gzip
 
 ### Mehrere BELABOXen
 
-Für jede weitere BELABOX ein neues Profil auf dem VPS anlegen:
+Für jede weitere BELABOX das VPS-Script erneut starten und einen neuen Profilnamen eingeben:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile WEITERER_PROFILNAME
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
 ```
 
 Danach wieder den neu ausgegebenen BELABOX-Befehl auf der zweiten BELABOX ausführen.
@@ -85,7 +85,7 @@ belabox-remote-vps-status
 Link eines Profils neu erzeugen:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile DEIN_PROFILNAME --regenerate-link
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash --regenerate-link
 ```
 
 ### Nutzung
@@ -170,7 +170,7 @@ journalctl -u belabox-vps-remote-ui-tunnel.service -n 80 --no-pager
 Wenn du nur die Nginx-Startseite siehst, das VPS-Script erneut ausführen und Nginx neu starten:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile DEIN_PROFILNAME --no-reboot
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash --no-reboot
 sudo nginx -t
 sudo systemctl restart nginx
 ```
@@ -223,20 +223,20 @@ If an existing RTMP Nginx configuration is detected, BelaRemoteUI automatically 
 
 ### Quick Start
 
-Run on the VPS:
+Run on the VPS and enter a profile name when asked:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile YOUR_PROFILE_NAME
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
 ```
 
 Then copy the complete BELABOX command printed by the VPS script and run it on the matching BELABOX.
 
 ### Multiple BELABOX Units
 
-Create another profile on the same VPS:
+Start the VPS script again and enter another profile name:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile ANOTHER_PROFILE_NAME
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
 ```
 
 Show profiles:
