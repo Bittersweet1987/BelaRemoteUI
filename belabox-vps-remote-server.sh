@@ -42,6 +42,7 @@ CHISEL_SERVICE_NAME="belabox-remote-ui-chisel"
 NGINX_CONF="/etc/nginx/conf.d/belabox-remote-ui.conf"
 NGINX_SITE="/etc/nginx/sites-available/belabox-remote-ui"
 NGINX_SITE_LINK="/etc/nginx/sites-enabled/belabox-remote-ui"
+SERVER_SCRIPT_URL="https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh"
 CLIENT_SCRIPT_URL="https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh"
 
 usage() {
@@ -49,7 +50,7 @@ usage() {
 BELABOX VPS Remote UI Receiver
 
 Nutzung:
-  sudo bash belabox-vps-remote-server.sh [Optionen]
+  curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- [Optionen]
 
 Installation / Profile:
   --profile NAME          Name der BELABOX auf diesem VPS (sonst Abfrage)
@@ -74,11 +75,11 @@ Neustart:
   --no-reboot             Nach erfolgreicher Installation nicht nach Reboot fragen
 
 Beispiele:
-  sudo bash belabox-vps-remote-server.sh --profile belabox-wohnzimmer
-  sudo bash belabox-vps-remote-server.sh --profile belabox2 --domain belabox.example.com
-  sudo bash belabox-vps-remote-server.sh --list
-  sudo bash belabox-vps-remote-server.sh --delete-profile belabox2
-  sudo bash belabox-vps-remote-server.sh --uninstall
+  curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile belabox-wohnzimmer
+  curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile belabox2 --domain belabox.example.com
+  curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --list
+  curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --delete-profile belabox2
+  curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --uninstall
 EOF
 }
 
@@ -807,16 +808,17 @@ Naechster Schritt auf der BELABOX:
 Wichtig: Diese komplette Curl-Zeile auf der BELABOX ausfuehren.
 
 Weitere Profile anlegen:
-  sudo bash belabox-vps-remote-server.sh --profile NAME
+  curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash -s -- --profile NAME
 
 Profile anzeigen:
   belabox-remote-vps-status
+  curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash -s -- --list
 
 Profil loeschen:
-  sudo bash belabox-vps-remote-server.sh --delete-profile ${PROFILE}
+  curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash -s -- --delete-profile ${PROFILE}
 
 Komplett entfernen:
-  sudo bash belabox-vps-remote-server.sh --uninstall
+  curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash -s -- --uninstall
 
 SSH zwischen BELABOX und VPS wird fuer diesen Remote-Zugang nicht benutzt.
 Der offizielle BELABOX remote key wird nicht benutzt und nicht veraendert.

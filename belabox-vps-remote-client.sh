@@ -26,13 +26,14 @@ PROXY_SERVICE_NAME="belabox-vps-remote-ui-proxy"
 TUNNEL_SERVICE_NAME="belabox-vps-remote-ui-tunnel"
 LINK_HELPER="/usr/local/bin/belabox-vps-remote-link"
 CHISEL_BIN="/usr/local/bin/chisel"
+CLIENT_SCRIPT_URL="https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh"
 
 usage() {
   cat <<EOF
 BELABOX VPS Remote UI Client
 
 Nutzung auf der BELABOX:
-  sudo bash belabox-vps-remote-client.sh [Optionen]
+  curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- [Optionen]
 
 Optionen:
   --vps HOST              VPS-IP oder Domain (optional, sonst Abfrage)
@@ -50,7 +51,7 @@ Optionen:
   -h, --help              Hilfe anzeigen
 
 Beispiel:
-  sudo bash belabox-vps-remote-client.sh --vps 158.180.35.14 --tunnel-auth belabox1:GEHEIM --remote-port 18080 --public-url http://158.180.35.14/r/belabox1/GEHEIM/
+  curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --vps 158.180.35.14 --tunnel-auth belabox1:GEHEIM --remote-port 18080 --public-url http://158.180.35.14/r/belabox1/GEHEIM/
 EOF
 }
 
@@ -543,6 +544,9 @@ Tunnel stoppen:
 
 Tunnel wieder starten:
   systemctl start ${TUNNEL_SERVICE_NAME}.service
+
+Installation entfernen:
+  curl -fsSL ${CLIENT_SCRIPT_URL} | sudo bash -s -- --uninstall
 ==================================================
 EOF
 
