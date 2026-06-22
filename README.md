@@ -8,31 +8,34 @@ The official BELABOX remote key is not used, overwritten, or modified. Each BELA
 
 ### Inhalt
 
-- [Überblick](#überblick)
+- [Kurzüberblick](#kurzüberblick)
 - [Voraussetzungen](#voraussetzungen)
-- [Schnellstart](#schnellstart)
+- [Installation](#installation)
 - [Mehrere BELABOXen](#mehrere-belaboxen)
 - [Nutzung](#nutzung)
 - [Verwaltung](#verwaltung)
-- [Troubleshooting](#troubleshooting)
+- [Fehlerbehebung](#fehlerbehebung)
+- [Sicherheit](#sicherheit)
 - [Lizenz](#lizenz)
 
-### Überblick
+### Kurzüberblick
 
-BelaRemoteUI besteht aus zwei Scripts:
+BelaRemoteUI richtet auf deinem VPS einen eigenen Remote-Zugang zur BELABOX-Weboberfläche ein. Die BELABOX baut dabei nur eine ausgehende Verbindung zum VPS auf. Dadurch muss auf der BELABOX kein Port geöffnet werden, und der offizielle BELABOX-Remote-Key bleibt unangetastet.
 
-| Script | Läuft auf | Zweck |
+Es gibt zwei Scripts:
+
+| Script | Läuft auf | Aufgabe |
 | --- | --- | --- |
-| `belabox-vps-remote-server.sh` | VPS | Nginx, Chisel-Server, Profile und feste Remote-URLs |
+| `belabox-vps-remote-server.sh` | VPS | Nginx, Chisel-Server, feste URLs und Profilverwaltung |
 | `belabox-vps-remote-client.sh` | BELABOX | Lokaler Proxy und ausgehender Chisel-Tunnel |
 
 Pro BELABOX-Profil erzeugt der VPS:
 
 | Wert | Beispiel |
 | --- | --- |
-| Remote-URL | `http://158.180.35.14/r/DEIN_PROFILNAME/0b9a.../` |
-| Widget/API-URL | `http://158.180.35.14/?token=0b9a...` |
-| WebSocket-URL | `ws://158.180.35.14/?token=0b9a...` |
+| Browser-Link | `http://158.180.35.14/r/DEIN_PROFILNAME/0b9a.../` |
+| Widget/API-Link | `http://158.180.35.14/?token=0b9a...` |
+| WebSocket-Link | `ws://158.180.35.14/?token=0b9a...` |
 | Tunnel-Token | `DEIN_PROFILNAME:abc123...` |
 | Interner VPS-Port | `18080`, `18081`, `18082` |
 
@@ -40,41 +43,62 @@ Pro BELABOX-Profil erzeugt der VPS:
 
 - VPS mit Ubuntu 24.04 oder Ubuntu 26.04
 - Root- oder sudo-Zugriff auf VPS und BELABOX
-- Offene VPS-Ports: HTTP `80` oder der ausgegebene Port, Chisel `9090`, SSH-Management-Port
 - BELABOX mit Terminal- oder SSH-Zugriff
+- Auf dem VPS offen: HTTP-Port `80` oder der ausgegebene Ersatzport, Chisel-Port `9090`, normaler SSH-Management-Port
 
-Wenn eine bestehende RTMP-Nginx-Konfiguration erkannt wird, weicht BelaRemoteUI automatisch auf HTTP-Port `8088` aus, sofern du keinen eigenen `--public-port` setzt.
+Wenn auf dem VPS bereits eine RTMP-Nginx-Konfiguration erkannt wird, weicht BelaRemoteUI automatisch auf HTTP-Port `8088` aus. So wird eine bestehende RTMP-Konfiguration nicht überschrieben. Wenn du bewusst einen anderen HTTP-Port möchtest, kannst du später `--public-port PORT` verwenden.
 
-### Schnellstart
+### Installation
 
-**1. Auf dem VPS ausführen und Profilnamen eingeben:**
+#### 1. VPS vorbereiten
+
+Auf dem VPS ausführen:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
 ```
 
+Das Script fragt nach einem Profilnamen. Dieser Name dient nur zur Verwaltung auf dem VPS, zum Beispiel `kamera1`, `eventbox` oder `rucksack`.
 
-**2. Den ausgegebenen BELABOX-Befehl kopieren.**
+Nach der Installation zeigt das VPS-Script alle wichtigen Daten an:
 
-Das VPS-Script zeigt am Ende eine komplette Zeile wie diese:
+- feste Remote-URL
+- Widget/API-URL
+- WebSocket-URL
+- Chisel-Tunnel-Port
+- Tunnel-Token
+- kompletter Installationsbefehl für die BELABOX
+
+#### 2. BELABOX verbinden
+
+Kopiere den kompletten Befehl aus der VPS-Ausgabe und führe genau diesen auf der passenden BELABOX aus.
+
+Er sieht ungefähr so aus:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --vps 158.180.35.14 --tunnel-server-port 9090 --tunnel-auth DEIN_PROFILNAME:DEIN_TOKEN --remote-port 18080 --public-url http://158.180.35.14/r/DEIN_PROFILNAME/DEIN_LINK/
 ```
 
-**3. Genau diese Zeile auf der passenden BELABOX ausführen.**
+Das BELABOX-Script installiert fehlende Pakete wie `curl`, `nodejs`, `gzip` und Chisel. Danach richtet es den lokalen Proxy ein und startet den dauerhaften Tunnel zum VPS.
 
-Das BELABOX-Script installiert fehlende Pakete inklusive `curl`, `nodejs`, `gzip` und Chisel.
+#### 3. Neustart
+
+Beide Scripts fragen am Ende, ob das jeweilige System neu gestartet werden soll. Du kannst das Verhalten auch direkt setzen:
+
+```bash
+--reboot      # automatisch neu starten
+--no-reboot   # Reboot-Abfrage überspringen
+```
 
 ### Mehrere BELABOXen
 
-Für jede weitere BELABOX das VPS-Script erneut starten und einen neuen Profilnamen eingeben:
+Für jede weitere BELABOX startest du das VPS-Script erneut und gibst einen neuen Profilnamen ein:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
 ```
 
-Danach wieder den neu ausgegebenen BELABOX-Befehl auf der zweiten BELABOX ausführen.
+Danach kopierst du wieder den neu ausgegebenen BELABOX-Befehl auf die zweite BELABOX. Jedes Profil bekommt einen eigenen Link, eigenen Token und eigenen internen VPS-Port.
 
 Profile anzeigen:
 
@@ -82,28 +106,32 @@ Profile anzeigen:
 belabox-remote-vps-status
 ```
 
-Link eines Profils neu erzeugen:
+Neuen Link für ein bestehendes Profil erzeugen:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash --regenerate-link
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --regenerate-link
 ```
+
+Das Script fragt dabei wieder nach dem Profilnamen.
 
 ### Nutzung
 
-Browser:
+Für normale Browser-Nutzung nimmst du die feste Remote-URL aus der VPS-Ausgabe:
 
 ```text
 http://158.180.35.14/r/DEIN_PROFILNAME/0b9a8c7d6e5f4a3b2c1d/
 ```
 
-Widget/API:
+Der Browser wird danach auf `/` weitergeleitet. Das ist normal: Die geheime URL setzt vorher ein Cookie, damit CSS, JavaScript und WebSockets wie bei `belabox.local` funktionieren.
+
+Für externe Widgets oder Hintergrund-Anfragen kannst du den Token direkt in der URL nutzen:
 
 ```text
 http://158.180.35.14/?token=0b9a8c7d6e5f4a3b2c1d
 ws://158.180.35.14/?token=0b9a8c7d6e5f4a3b2c1d
 ```
 
-Bei RTMP-Ausweichport:
+Wenn BelaRemoteUI wegen RTMP auf Port `8088` ausweicht:
 
 ```text
 http://158.180.35.14:8088/?token=0b9a8c7d6e5f4a3b2c1d
@@ -124,13 +152,13 @@ Remote-Link auf der BELABOX anzeigen:
 belabox-vps-remote-link
 ```
 
-VPS-Profil löschen:
+Ein VPS-Profil löschen:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --delete-profile DEIN_PROFILNAME
 ```
 
-VPS-Installation komplett entfernen:
+Komplette VPS-Installation entfernen:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --uninstall
@@ -142,14 +170,9 @@ BELABOX-Client entfernen:
 curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --uninstall
 ```
 
-Reboot nach Installation:
+Die Löschroutinen entfernen nur BelaRemoteUI-Dateien, Services und die eigenen Nginx-Dateien. BELABOX-UI, offizieller Remote-Key und fremde RTMP/Nginx-Konfigurationen bleiben unangetastet.
 
-```bash
---reboot      # automatisch neu starten
---no-reboot   # Reboot-Abfrage überspringen
-```
-
-### Troubleshooting
+### Fehlerbehebung
 
 VPS prüfen:
 
@@ -167,12 +190,19 @@ systemctl status belabox-vps-remote-ui-proxy.service
 journalctl -u belabox-vps-remote-ui-tunnel.service -n 80 --no-pager
 ```
 
-Wenn du nur die Nginx-Startseite siehst, das VPS-Script erneut ausführen und Nginx neu starten:
+Wenn nur die Nginx-Startseite erscheint, die VPS-Konfiguration neu schreiben und Nginx neu starten:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash --no-reboot
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --no-reboot
 sudo nginx -t
 sudo systemctl restart nginx
+```
+
+Wenn der Browser `502 Bad Gateway` zeigt, ist Nginx erreichbar, aber der Tunnel zur BELABOX ist nicht verbunden. Prüfe dann auf der BELABOX:
+
+```bash
+systemctl status belabox-vps-remote-ui-tunnel.service
+journalctl -u belabox-vps-remote-ui-tunnel.service -n 80 --no-pager
 ```
 
 ### Sicherheit
@@ -190,40 +220,22 @@ Dieses Projekt steht unter der GNU General Public License v3.0, passend zu BELAB
 
 ## English
 
-### Contents
-
-- [Overview](#overview)
-- [Requirements](#requirements)
-- [Quick Start](#quick-start)
-- [Multiple BELABOX Units](#multiple-belabox-units)
-- [Usage](#usage)
-- [Management](#management)
-- [Troubleshooting](#troubleshooting-1)
-- [License](#license)
-
 ### Overview
 
-BelaRemoteUI uses two scripts:
+BelaRemoteUI provides fixed, self-hosted remote access to one or more BELABOX web UIs through your own VPS.
+
+It uses two scripts:
 
 | Script | Runs on | Purpose |
 | --- | --- | --- |
-| `belabox-vps-remote-server.sh` | VPS | Nginx, Chisel server, profiles, fixed remote URLs |
+| `belabox-vps-remote-server.sh` | VPS | Nginx, Chisel server, profiles, fixed URLs |
 | `belabox-vps-remote-client.sh` | BELABOX | Local proxy and outgoing Chisel tunnel |
 
-Each BELABOX profile gets its own remote URL, widget token, Chisel token, and internal VPS port. Multiple BELABOX units can therefore share one VPS safely.
-
-### Requirements
-
-- VPS with Ubuntu 24.04 or Ubuntu 26.04
-- Root or sudo access on VPS and BELABOX
-- Reachable VPS ports: HTTP `80` or the printed port, Chisel `9090`, SSH management port
-- BELABOX with terminal or SSH access
-
-If an existing RTMP Nginx configuration is detected, BelaRemoteUI automatically uses HTTP port `8088` unless you explicitly set `--public-port`.
+Each BELABOX profile gets its own URL, token, and internal VPS port. The official BELABOX remote key is not used or modified.
 
 ### Quick Start
 
-Run on the VPS and enter a profile name when asked:
+Run this on the VPS and enter a profile name when asked:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
@@ -233,7 +245,7 @@ Then copy the complete BELABOX command printed by the VPS script and run it on t
 
 ### Multiple BELABOX Units
 
-Start the VPS script again and enter another profile name:
+Run the VPS script again and enter a new profile name:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
@@ -266,12 +278,6 @@ Show VPS profiles:
 
 ```bash
 belabox-remote-vps-status
-```
-
-Show the remote link on the BELABOX:
-
-```bash
-belabox-vps-remote-link
 ```
 
 Delete one VPS profile:
@@ -309,13 +315,6 @@ systemctl status belabox-vps-remote-ui-tunnel.service
 systemctl status belabox-vps-remote-ui-proxy.service
 journalctl -u belabox-vps-remote-ui-tunnel.service -n 80 --no-pager
 ```
-
-### Security Notes
-
-- SSH between BELABOX and VPS is not used.
-- The official BELABOX remote key remains unchanged.
-- Each BELABOX gets its own link, token, and internal VPS port.
-- Without HTTPS, browser traffic to the VPS is not encrypted.
 
 ### License
 
