@@ -1,4 +1,4 @@
-# BelaRemote
+# BelaRemoteUI
 
 Fester, selbst gehosteter Remote-Zugriff auf die BELABOX-Weboberfläche über deinen eigenen VPS.
 
@@ -6,9 +6,9 @@ Der offizielle BELABOX-Remote-Key wird nicht benutzt, nicht überschrieben und n
 
 ## Deutsch
 
-### Was BelaRemote macht
+### Was BelaRemoteUI macht
 
-BelaRemote besteht aus zwei Installationsscripts:
+BelaRemoteUI besteht aus zwei Installationsscripts:
 
 - `belabox-vps-remote-server.sh` läuft auf deinem VPS.
 - `belabox-vps-remote-client.sh` läuft auf der BELABOX.
@@ -37,13 +37,13 @@ Der Link bleibt gleich, auch nach Neustarts. Er ändert sich nur, wenn du auf de
 Auf dem VPS ausführen:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-server.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
 ```
 
 Optional mit Domain:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-server.sh | sudo bash -s -- --domain belabox.example.com
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --domain belabox.example.com
 ```
 
 Am Ende zeigt das Script die feste Remote-URL an. Diese URL enthält bereits den zufällig generierten Pfad.
@@ -53,7 +53,7 @@ Am Ende zeigt das Script die feste Remote-URL an. Diese URL enthält bereits den
 Auf der BELABOX ausführen:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-client.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash
 ```
 
 Das Script fragt während der Installation nach der VPS-IP oder Domain:
@@ -73,7 +73,7 @@ Danach trägt das Script den Tunnel-Key auf dem VPS ein, holt die komplette gene
 Nicht-interaktiv geht es auch:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-client.sh | sudo bash -s -- --vps 158.180.35.14
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --vps 158.180.35.14
 ```
 
 ### Link erneut anzeigen
@@ -95,13 +95,13 @@ cat /etc/belabox-remote-ui/public_url
 Nur auf dem VPS ausführen, wenn du wirklich einen neuen geheimen Linkpfad möchtest:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-server.sh | sudo bash -s -- --regenerate-link
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --regenerate-link
 ```
 
 Danach das BELABOX-Client-Script erneut starten, damit die BELABOX die neue URL übernimmt:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-client.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash
 ```
 
 ### Status prüfen
@@ -170,7 +170,7 @@ Der lokale Proxy auf der BELABOX ist nötig, weil die BELABOX-UI ihre WebSocket-
 Wenn du den SSH-Key nicht automatisch eintragen möchtest, kannst du auf der BELABOX nutzen:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-client.sh | sudo bash -s -- --skip-key-install --public-url http://DEINE-VPS-IP/r/DEIN-PFAD/
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --skip-key-install --public-url http://DEINE-VPS-IP/r/DEIN-PFAD/
 ```
 
 Ohne automatisches Eintragen kann das Script die generierte URL nicht selbst vom VPS lesen. Gib sie dann mit `--public-url` an.
@@ -184,9 +184,9 @@ Ohne automatisches Eintragen kann das Script die generierte URL nicht selbst vom
 
 ## English
 
-### What BelaRemote does
+### What BelaRemoteUI does
 
-BelaRemote provides fixed, self-hosted remote access to the BELABOX web UI through your own VPS.
+BelaRemoteUI provides fixed, self-hosted remote access to the BELABOX web UI through your own VPS.
 
 It does not use, overwrite, or modify the official BELABOX remote key. The BELABOX only opens an outgoing reverse SSH tunnel to your VPS. The VPS exposes a fixed URL and forwards it through that tunnel to the local BELABOX UI.
 
@@ -212,13 +212,13 @@ Only the full generated URL reaches the BELABOX UI. The bare VPS IP intentionall
 Run this on the VPS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-server.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
 ```
 
 Optional with a domain:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-server.sh | sudo bash -s -- --domain belabox.example.com
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --domain belabox.example.com
 ```
 
 The script prints the fixed remote URL at the end, including the generated random path.
@@ -228,7 +228,7 @@ The script prints the fixed remote URL at the end, including the generated rando
 Run this on the BELABOX:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-client.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash
 ```
 
 The installer asks for the VPS IP or domain:
@@ -248,7 +248,7 @@ The script installs the tunnel key on the VPS, reads the generated remote URL fr
 Non-interactive usage:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-client.sh | sudo bash -s -- --vps 158.180.35.14
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --vps 158.180.35.14
 ```
 
 ### Show the Link Again
@@ -270,13 +270,13 @@ cat /etc/belabox-remote-ui/public_url
 Run this on the VPS only when you intentionally want a new random URL path:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-server.sh | sudo bash -s -- --regenerate-link
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --regenerate-link
 ```
 
 Then run the BELABOX client installer again so the BELABOX stores the new URL:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemote/main/belabox-vps-remote-client.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash
 ```
 
 ### Status
