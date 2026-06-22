@@ -4,18 +4,17 @@
 #
 # Auf dem VPS ausfuehren. Richtet eine feste oeffentliche URL ein:
 #   http://VPS-IP/r/geheimer-pfad/
-# oder, wenn eine Domain auf den VPS zeigt:
-#   http://deine-domain.tld/r/geheimer-pfad/
 #
-# Die BELABOX verbindet sich spaeter ausgehend per Reverse-SSH-Tunnel zum VPS.
+# Die BELABOX verbindet sich spaeter ausgehend per Chisel-Tunnel zum VPS.
+# SSH zwischen BELABOX und VPS wird nicht benoetigt.
 # Der offizielle BELABOX remote key bleibt unveraendert.
 ###############################################################################
 set -euo pipefail
 
 ORIGINAL_ARGS=("$@")
 
-TUNNEL_USER="belabox-tunnel"
 TUNNEL_PORT="18080"
+TUNNEL_SERVER_PORT="9090"
 PUBLIC_PORT="80"
 SSH_PORT="22"
 SERVER_NAME="_"
@@ -24,8 +23,13 @@ KEEP_DEFAULT_SITE="0"
 CONFIG_DIR="/etc/belabox-remote-ui"
 PUBLIC_PATH_FILE="${CONFIG_DIR}/public_path"
 PUBLIC_URL_FILE="${CONFIG_DIR}/public_url"
+TUNNEL_AUTH_FILE="${CONFIG_DIR}/tunnel_auth"
 PUBLIC_PATH=""
+PUBLIC_TOKEN=""
+TUNNEL_AUTH=""
 REGENERATE_LINK="0"
+CHISEL_BIN="/usr/local/bin/chisel"
+CHISEL_SERVICE_NAME="belabox-remote-ui-chisel"
 CLIENT_SCRIPT_URL="https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh"
 
 usage() {
@@ -38,9 +42,12 @@ Nutzung:
 Optionen:
   --domain NAME          Domain, die auf diesen VPS zeigt (optional)
   --public-port PORT    Oeffentlicher HTTP-Port (Standard: 80)
-  --tunnel-port PORT    Interner Reverse-Tunnel-Port (Standard: 18080)
-  --ssh-port PORT       SSH-Port des VPS fuer Firewall-Freigabe (Standard: 22)
-  --tunnel-user USER    SSH-Tunnel-User (Standard: belabox-tunnel)
+  --tunnel-port PORT    Interner Reverse-Tunnel-Port auf dem VPS (Standard: 18080)
+  --tunnel-server-port PORT
+                         Oeffentlicher Chisel-Tunnel-Port (Standard: 9090)
+  --tunnel-auth USER:PASS
+                         Chisel-Token, sonst automatisch erzeugt
+  --ssh-port PORT       SSH-Management-Port des VPS fuer UFW (Standard: 22)
   --public-path PATH    Fester geheimer URL-Pfad, sonst automatisch erzeugt
   --regenerate-link     Neuen geheimen URL-Pfad erzeugen
   --no-ufw              UFW nicht konfigurieren/aktivieren
@@ -61,10 +68,12 @@ while [ "$#" -gt 0 ]; do
       PUBLIC_PORT="$2"; shift 2 ;;
     --tunnel-port)
       TUNNEL_PORT="$2"; shift 2 ;;
+    --tunnel-server-port)
+      TUNNEL_SERVER_PORT="$2"; shift 2 ;;
+    --tunnel-auth)
+      TUNNEL_AUTH="$2"; shift 2 ;;
     --ssh-port)
       SSH_PORT="$2"; shift 2 ;;
-    --tunnel-user)
-      TUNNEL_USER="$2"; shift 2 ;;
     --public-path)
       PUBLIC_PATH="$2"; shift 2 ;;
     --regenerate-link)
@@ -73,6 +82,9 @@ while [ "$#" -gt 0 ]; do
       ENABLE_UFW="0"; shift ;;
     --keep-default-site)
       KEEP_DEFAULT_SITE="1"; shift ;;
+    --tunnel-user)
+      echo "Hinweis: $1 ist veraltet. SSH wird nicht mehr fuer den Tunnel genutzt." >&2
+      shift 2 ;;
     -h|--help)
       usage; exit 0 ;;
     *)
@@ -146,6 +158,41 @@ generate_token() {
   echo "$token"
 }
 
+detect_chisel_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64) echo "amd64" ;;
+    aarch64|arm64) echo "arm64" ;;
+    armv7l|armv6l|armhf|arm) echo "arm" ;;
+    i386|i686) echo "386" ;;
+    *) echo "Nicht unterstuetzte CPU-Architektur fuer chisel: $(uname -m)" >&2; exit 1 ;;
+  esac
+}
+
+install_chisel() {
+  if [ -x "$CHISEL_BIN" ]; then
+    echo "Chisel ist bereits installiert: $($CHISEL_BIN --version 2>/dev/null || true)"
+    return
+  fi
+
+  local arch tag version url tmp_dir
+  arch="$(detect_chisel_arch)"
+  tag="$(curl -fsSL https://api.github.com/repos/jpillora/chisel/releases/latest | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+  if [ -z "$tag" ]; then
+    echo "Konnte die aktuelle Chisel-Version nicht ermitteln." >&2
+    exit 1
+  fi
+
+  version="${tag#v}"
+  url="https://github.com/jpillora/chisel/releases/download/${tag}/chisel_${version}_linux_${arch}.gz"
+  tmp_dir="$(mktemp -d)"
+
+  echo "Lade Chisel ${tag} fuer linux_${arch} herunter..."
+  curl -fsSL "$url" -o "${tmp_dir}/chisel.gz"
+  gzip -dc "${tmp_dir}/chisel.gz" > "$CHISEL_BIN"
+  chmod 0755 "$CHISEL_BIN"
+  rm -rf "$tmp_dir"
+}
+
 prepare_public_path() {
   mkdir -p "$CONFIG_DIR"
 
@@ -168,50 +215,73 @@ prepare_public_path() {
       ;;
   esac
 
+  PUBLIC_TOKEN="${PUBLIC_PATH##*/}"
   printf '%s\n' "$PUBLIC_PATH" > "$PUBLIC_PATH_FILE"
   chmod 600 "$PUBLIC_PATH_FILE"
 }
 
-setup_tunnel_user() {
-  local home_dir="/var/lib/${TUNNEL_USER}"
+prepare_tunnel_auth() {
+  mkdir -p "$CONFIG_DIR"
 
-  if ! id -u "$TUNNEL_USER" >/dev/null 2>&1; then
-    echo "Erstelle SSH-Tunnel-User: ${TUNNEL_USER}"
-    useradd --system --create-home --home-dir "$home_dir" --shell /bin/bash "$TUNNEL_USER"
+  if [ -n "$TUNNEL_AUTH" ]; then
+    :
+  elif [ -s "$TUNNEL_AUTH_FILE" ]; then
+    TUNNEL_AUTH="$(cat "$TUNNEL_AUTH_FILE")"
+  else
+    TUNNEL_AUTH="belabox:$(generate_token)"
   fi
 
-  passwd -l "$TUNNEL_USER" >/dev/null 2>&1 || true
-  install -d -m 700 -o "$TUNNEL_USER" -g "$TUNNEL_USER" "$home_dir/.ssh"
-  touch "$home_dir/.ssh/authorized_keys"
-  chown "$TUNNEL_USER:$TUNNEL_USER" "$home_dir/.ssh/authorized_keys"
-  chmod 600 "$home_dir/.ssh/authorized_keys"
+  case "$TUNNEL_AUTH" in
+    *[!A-Za-z0-9_:-]*|""|:*|*:|*:*:*)
+      echo "Ungueltiger Tunnel-Token. Nutze das Format USER:PASS mit Buchstaben, Zahlen, _, - oder :." >&2
+      exit 1
+      ;;
+    *:*) ;;
+    *)
+      echo "Ungueltiger Tunnel-Token. Nutze das Format USER:PASS." >&2
+      exit 1
+      ;;
+  esac
+
+  printf '%s\n' "$TUNNEL_AUTH" > "$TUNNEL_AUTH_FILE"
+  chmod 600 "$TUNNEL_AUTH_FILE"
 }
 
-configure_sshd() {
-  echo "Konfiguriere SSH fuer eingeschraenkten Reverse-Tunnel..."
-  mkdir -p /etc/ssh/sshd_config.d
-  cat > /etc/ssh/sshd_config.d/90-belabox-remote-ui.conf <<EOF
-# BELABOX Remote UI reverse tunnel user
-Match User ${TUNNEL_USER}
-    AllowTcpForwarding remote
-    GatewayPorts no
-    X11Forwarding no
-    AllowAgentForwarding no
-    PermitTTY no
-    PasswordAuthentication no
+write_chisel_service() {
+  echo "Schreibe Chisel-Tunnelserver..."
+  cat > "/etc/systemd/system/${CHISEL_SERVICE_NAME}.service" <<EOF
+[Unit]
+Description=BELABOX Remote UI Chisel reverse tunnel server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=${CHISEL_BIN} server --host 0.0.0.0 --port ${TUNNEL_SERVER_PORT} --reverse --auth ${TUNNEL_AUTH}
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
 EOF
 
-  sshd -t
-  systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
+  systemctl daemon-reload
+  systemctl enable "${CHISEL_SERVICE_NAME}.service" >/dev/null
+  systemctl restart "${CHISEL_SERVICE_NAME}.service"
 }
 
 configure_nginx() {
   echo "Konfiguriere Nginx als oeffentlichen Empfaenger..."
+  rm -f /etc/nginx/conf.d/belabox-remote-ui-websocket.conf
 
-  cat > /etc/nginx/conf.d/belabox-remote-ui-websocket.conf <<'EOF'
-map $http_upgrade $belabox_remote_ui_connection_upgrade {
+  cat > /etc/nginx/conf.d/belabox-remote-ui.conf <<EOF
+map \$http_upgrade \$belabox_remote_ui_connection_upgrade {
     default upgrade;
     '' close;
+}
+
+map \$cookie_belabox_remote_token \$belabox_remote_ui_allowed {
+    default 0;
+    "${PUBLIC_TOKEN}" 1;
 }
 EOF
 
@@ -220,16 +290,21 @@ server {
     listen ${PUBLIC_PORT} default_server;
     server_name ${SERVER_NAME};
 
-    location = / {
-        return 404;
-    }
-
     location = /${PUBLIC_PATH} {
-        return 302 /${PUBLIC_PATH}/;
+        add_header Set-Cookie "belabox_remote_token=${PUBLIC_TOKEN}; Path=/; HttpOnly; SameSite=Lax" always;
+        return 302 /;
     }
 
     location /${PUBLIC_PATH}/ {
-        rewrite ^/${PUBLIC_PATH}/?(.*)$ /\$1 break;
+        add_header Set-Cookie "belabox_remote_token=${PUBLIC_TOKEN}; Path=/; HttpOnly; SameSite=Lax" always;
+        return 302 /;
+    }
+
+    location / {
+        if (\$belabox_remote_ui_allowed = 0) {
+            return 404;
+        }
+
         proxy_pass http://127.0.0.1:${TUNNEL_PORT};
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -257,7 +332,7 @@ EOF
 
 configure_firewall() {
   if [ "$ENABLE_UFW" != "1" ]; then
-    echo "UFW-Konfiguration uebersprungen."
+    echo "UFW-Konfiguration uebersprungen. Oeffne extern mindestens TCP ${PUBLIC_PORT}, ${TUNNEL_SERVER_PORT} und deinen SSH-Management-Port."
     return
   fi
 
@@ -265,9 +340,10 @@ configure_firewall() {
     apt_install_if_missing ufw
   fi
 
-  echo "Oeffne Firewall-Ports: SSH ${SSH_PORT}/tcp, HTTP ${PUBLIC_PORT}/tcp"
+  echo "Oeffne Firewall-Ports: SSH ${SSH_PORT}/tcp, HTTP ${PUBLIC_PORT}/tcp, Tunnel ${TUNNEL_SERVER_PORT}/tcp"
   ufw allow "${SSH_PORT}/tcp" >/dev/null || true
   ufw allow "${PUBLIC_PORT}/tcp" >/dev/null || true
+  ufw allow "${TUNNEL_SERVER_PORT}/tcp" >/dev/null || true
   echo "y" | ufw enable >/dev/null || true
 }
 
@@ -275,24 +351,38 @@ write_status_helper() {
   cat > /usr/local/bin/belabox-remote-vps-status <<EOF
 #!/bin/sh
 echo "=== BELABOX VPS Remote UI Status ==="
+echo "Remote-URL:"
+cat ${PUBLIC_URL_FILE} 2>/dev/null || true
+echo ""
 echo "Nginx:"
 systemctl --no-pager --full status nginx | sed -n '1,8p'
 echo ""
+echo "Chisel:"
+systemctl --no-pager --full status ${CHISEL_SERVICE_NAME}.service | sed -n '1,10p'
+echo ""
 echo "Tunnel-Port ${TUNNEL_PORT}:"
 if command -v ss >/dev/null 2>&1; then
-  ss -ltnp | grep ':${TUNNEL_PORT} ' || echo "Noch kein Reverse-Tunnel verbunden."
+  ss -ltnp | grep ':${TUNNEL_PORT} ' || echo "Noch kein BELABOX-Tunnel verbunden."
 else
-  netstat -ltnp 2>/dev/null | grep ':${TUNNEL_PORT} ' || echo "Noch kein Reverse-Tunnel verbunden."
+  netstat -ltnp 2>/dev/null | grep ':${TUNNEL_PORT} ' || echo "Noch kein BELABOX-Tunnel verbunden."
+fi
+echo ""
+echo "Chisel-Port ${TUNNEL_SERVER_PORT}:"
+if command -v ss >/dev/null 2>&1; then
+  ss -ltnp | grep ':${TUNNEL_SERVER_PORT} ' || true
+else
+  netstat -ltnp 2>/dev/null | grep ':${TUNNEL_SERVER_PORT} ' || true
 fi
 EOF
   chmod 0755 /usr/local/bin/belabox-remote-vps-status
 }
 
 validate_os
-apt_install_if_missing ca-certificates curl openssh-server nginx
+apt_install_if_missing ca-certificates curl gzip nginx
+install_chisel
 prepare_public_path
-setup_tunnel_user
-configure_sshd
+prepare_tunnel_auth
+write_chisel_service
 configure_nginx
 configure_firewall
 write_status_helper
@@ -323,18 +413,22 @@ cat <<EOF
 Feste Remote-URL:
   ${PUBLIC_URL}
 
-Noch zeigt diese URL erst dann auf die BELABOX-UI,
-wenn das BELABOX-Client-Script verbunden ist.
+Beim Aufruf dieser geheimen URL setzt der VPS ein Cookie
+und leitet danach auf / weiter. Dadurch sieht die UI aus wie lokal.
+
+Chisel-Tunnel-Port:
+  ${TUNNEL_SERVER_PORT}/tcp
+
+Tunnel-Token:
+  ${TUNNEL_AUTH}
 
 Naechster Schritt auf der BELABOX:
-  curl -fsSL ${CLIENT_SCRIPT_URL} | sudo bash -s -- --vps ${PUBLIC_HOST} --public-url ${PUBLIC_URL}
-
-Falls SSH auf dem VPS nicht Port 22 nutzt:
-  curl -fsSL ${CLIENT_SCRIPT_URL} | sudo bash -s -- --vps ${PUBLIC_HOST} --vps-ssh-port ${SSH_PORT} --public-url ${PUBLIC_URL}
+  curl -fsSL ${CLIENT_SCRIPT_URL} | sudo bash -s -- --vps ${PUBLIC_HOST} --tunnel-server-port ${TUNNEL_SERVER_PORT} --tunnel-auth ${TUNNEL_AUTH} --public-url ${PUBLIC_URL}
 
 Status auf dem VPS pruefen:
   belabox-remote-vps-status
 
+SSH zwischen BELABOX und VPS wird fuer diesen Remote-Zugang nicht benutzt.
 Der offizielle BELABOX remote key wird nicht benutzt und nicht veraendert.
 ==================================================
 EOF
