@@ -3,9 +3,9 @@
 # BELABOX VPS Remote UI Receiver
 #
 # Auf dem VPS ausfuehren. Richtet eine feste oeffentliche URL ein:
-#   http://VPS-IP/
+#   http://VPS-IP/r/geheimer-pfad/
 # oder, wenn eine Domain auf den VPS zeigt:
-#   http://deine-domain.tld/
+#   http://deine-domain.tld/r/geheimer-pfad/
 #
 # Die BELABOX verbindet sich spaeter ausgehend per Reverse-SSH-Tunnel zum VPS.
 # Der offizielle BELABOX remote key bleibt unveraendert.
@@ -26,6 +26,7 @@ PUBLIC_PATH_FILE="${CONFIG_DIR}/public_path"
 PUBLIC_URL_FILE="${CONFIG_DIR}/public_url"
 PUBLIC_PATH=""
 REGENERATE_LINK="0"
+CLIENT_SCRIPT_URL="https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh"
 
 usage() {
   cat <<EOF
@@ -326,10 +327,10 @@ Noch zeigt diese URL erst dann auf die BELABOX-UI,
 wenn das BELABOX-Client-Script verbunden ist.
 
 Naechster Schritt auf der BELABOX:
-  sudo bash belabox-vps-remote-client.sh --vps ${PUBLIC_HOST} --public-url ${PUBLIC_URL}
+  curl -fsSL ${CLIENT_SCRIPT_URL} | sudo bash -s -- --vps ${PUBLIC_HOST} --public-url ${PUBLIC_URL}
 
 Falls SSH auf dem VPS nicht Port 22 nutzt:
-  sudo bash belabox-vps-remote-client.sh --vps ${PUBLIC_HOST} --vps-ssh-port ${SSH_PORT} --public-url ${PUBLIC_URL}
+  curl -fsSL ${CLIENT_SCRIPT_URL} | sudo bash -s -- --vps ${PUBLIC_HOST} --vps-ssh-port ${SSH_PORT} --public-url ${PUBLIC_URL}
 
 Status auf dem VPS pruefen:
   belabox-remote-vps-status
