@@ -213,21 +213,20 @@ generate_ssh_key() {
 }
 
 install_key_on_vps() {
-  if [ "$SKIP_KEY_INSTALL" = "1" ]; then
-    echo "Automatisches Eintragen des SSH-Keys uebersprungen."
-    echo "Trage diesen Public Key manuell beim User ${TUNNEL_USER} auf dem VPS ein:"
-    cat "${KEY_FILE}.pub"
-    return
-  fi
-
   local pubkey authorized_line key_b64
   pubkey="$(cat "${KEY_FILE}.pub")"
   authorized_line="restrict,port-forwarding,permitlisten=\"127.0.0.1:${REMOTE_PORT}\" ${pubkey}"
   key_b64="$(printf '%s' "$authorized_line" | base64 | tr -d '\n')"
 
+  if [ "$SKIP_KEY_INSTALL" = "1" ]; then
+    echo "Automatisches Eintragen des SSH-Keys uebersprungen."
+    print_manual_key_help "$key_b64"
+    return
+  fi
+
   echo "Trage den Tunnel-Key auf dem VPS ein. Falls gefragt: VPS-${VPS_ADMIN_USER}-Passwort eingeben."
   local remote_output
-  remote_output="$(ssh -p "$VPS_SSH_PORT" -o StrictHostKeyChecking=accept-new "${VPS_ADMIN_USER}@${VPS_HOST}" \
+  if ! remote_output="$(ssh -p "$VPS_SSH_PORT" -o StrictHostKeyChecking=accept-new "${VPS_ADMIN_USER}@${VPS_HOST}" \
     "KEY_B64='${key_b64}' TUNNEL_USER='${TUNNEL_USER}' bash -s" <<'REMOTE_SCRIPT'
 set -euo pipefail
 SUDO="sudo"
@@ -258,13 +257,50 @@ if [ -r /etc/belabox-remote-ui/public_url ]; then
   printf 'BELAREMOTE_PUBLIC_URL=%s\n' "$(cat /etc/belabox-remote-ui/public_url)"
 fi
 REMOTE_SCRIPT
-)"
+)"; then
+    echo "" >&2
+    echo "Automatisches Eintragen des SSH-Keys auf dem VPS ist fehlgeschlagen." >&2
+    echo "Meist bedeutet das: Der VPS erlaubt keinen SSH-Login als ${VPS_ADMIN_USER} von der BELABOX." >&2
+    echo "" >&2
+    echo "Option 1: Starte das Script erneut mit einem VPS-User, der SSH-Zugriff und sudo hat:" >&2
+    echo "  --admin-user DEIN_VPS_USER" >&2
+    echo "" >&2
+    echo "Option 2: Trage den Key manuell auf dem VPS ein und starte danach dieses Script mit --skip-key-install." >&2
+    print_manual_key_help "$key_b64" >&2
+    exit 1
+  fi
 
   printf '%s\n' "$remote_output" | sed '/^BELAREMOTE_PUBLIC_URL=/d'
 
   if [ -z "$PUBLIC_URL" ]; then
     PUBLIC_URL="$(printf '%s\n' "$remote_output" | sed -n 's/^BELAREMOTE_PUBLIC_URL=//p' | tail -n 1)"
   fi
+}
+
+print_manual_key_help() {
+  local key_b64="$1"
+  local home_dir="/var/lib/${TUNNEL_USER}"
+  local rerun_public_url="${PUBLIC_URL:-REMOTE_URL_AUS_DEM_VPS_SCRIPT}"
+
+  cat <<EOF
+Fuehre diesen Block auf dem VPS als root oder als sudo-User aus:
+
+KEY_B64='${key_b64}'
+TUNNEL_USER='${TUNNEL_USER}'
+HOME_DIR='${home_dir}'
+AUTH_FILE="\${HOME_DIR}/.ssh/authorized_keys"
+
+sudo install -d -m 700 -o "\${TUNNEL_USER}" -g "\${TUNNEL_USER}" "\${HOME_DIR}/.ssh"
+sudo touch "\${AUTH_FILE}"
+printf '%s\n' "\${KEY_B64}" | base64 -d | sudo tee -a "\${AUTH_FILE}" >/dev/null
+sudo awk '!seen[\$0]++' "\${AUTH_FILE}" | sudo tee "\${AUTH_FILE}.tmp" >/dev/null
+sudo mv "\${AUTH_FILE}.tmp" "\${AUTH_FILE}"
+sudo chown "\${TUNNEL_USER}:\${TUNNEL_USER}" "\${AUTH_FILE}"
+sudo chmod 600 "\${AUTH_FILE}"
+
+Danach auf der BELABOX erneut starten mit:
+  curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --vps ${VPS_HOST} --skip-key-install --public-url ${rerun_public_url}
+EOF
 }
 
 finalize_public_url() {
