@@ -16,6 +16,8 @@ TUNNEL_AUTH=""
 REMOTE_PORT="18080"
 LOCAL_PROXY_PORT="18180"
 PUBLIC_URL=""
+ACTION="install"
+REBOOT_MODE="ask"
 
 LOCAL_USER="belabox-vps-remote"
 INSTALL_DIR="/opt/belabox-vps-remote-ui"
@@ -39,13 +41,16 @@ Optionen:
   --tunnel-auth USER:PASS Chisel-Token aus dem VPS-Script
   --remote-port PORT      Interner Tunnel-Port auf dem VPS (Standard: 18080)
   --local-proxy-port P    Lokaler Proxy-Port auf der BELABOX (Standard: 18180)
+  --uninstall             BELABOX-Installation rueckgaengig machen
+  --reboot                Nach erfolgreicher Installation automatisch rebooten
+  --no-reboot             Nach erfolgreicher Installation nicht nach Reboot fragen
   --skip-key-install      Veraltet, wird ignoriert. SSH wird nicht mehr genutzt.
   --admin-user USER       Veraltet, wird ignoriert. SSH wird nicht mehr genutzt.
   --vps-ssh-port PORT     Veraltet, wird ignoriert. SSH wird nicht mehr genutzt.
   -h, --help              Hilfe anzeigen
 
 Beispiel:
-  sudo bash belabox-vps-remote-client.sh --vps 158.180.35.14 --tunnel-auth belabox:GEHEIM --public-url http://158.180.35.14/r/GEHEIM/
+  sudo bash belabox-vps-remote-client.sh --vps 158.180.35.14 --tunnel-auth belabox1:GEHEIM --remote-port 18080 --public-url http://158.180.35.14/r/belabox1/GEHEIM/
 EOF
 }
 
@@ -63,6 +68,12 @@ while [ "$#" -gt 0 ]; do
       REMOTE_PORT="$2"; shift 2 ;;
     --local-proxy-port)
       LOCAL_PROXY_PORT="$2"; shift 2 ;;
+    --uninstall)
+      ACTION="uninstall"; shift ;;
+    --reboot)
+      REBOOT_MODE="yes"; shift ;;
+    --no-reboot)
+      REBOOT_MODE="no"; shift ;;
     --skip-key-install)
       echo "Hinweis: --skip-key-install ist veraltet. SSH wird nicht mehr genutzt." >&2
       shift ;;
@@ -88,6 +99,23 @@ fi
 
 have_cmd() {
   command -v "$1" >/dev/null 2>&1
+}
+
+uninstall_client() {
+  echo "Entferne BelaRemoteUI von der BELABOX..."
+  systemctl stop "${TUNNEL_SERVICE_NAME}.service" "${PROXY_SERVICE_NAME}.service" 2>/dev/null || true
+  systemctl disable "${TUNNEL_SERVICE_NAME}.service" "${PROXY_SERVICE_NAME}.service" 2>/dev/null || true
+
+  rm -f "/etc/systemd/system/${TUNNEL_SERVICE_NAME}.service"
+  rm -f "/etc/systemd/system/${PROXY_SERVICE_NAME}.service"
+  systemctl daemon-reload
+
+  rm -rf "$INSTALL_DIR" "$STATE_DIR"
+  rm -f "$LINK_HELPER"
+  rm -f "$CHISEL_BIN"
+  userdel "$LOCAL_USER" 2>/dev/null || true
+
+  echo "BELABOX-Installation entfernt. BELABOX-UI und offizieller remote key wurden nicht veraendert."
 }
 
 prompt_value() {
@@ -121,6 +149,30 @@ apt_install_if_missing() {
     echo "Installiere benoetigte Pakete: ${missing[*]}" >&2
     apt-get update -y -q >&2
     apt-get install -y -q "${missing[@]}" >&2
+  fi
+}
+
+maybe_reboot() {
+  case "$REBOOT_MODE" in
+    yes)
+      echo "Starte BELABOX neu..."
+      reboot
+      ;;
+    no)
+      return
+      ;;
+  esac
+
+  if [ -r /dev/tty ]; then
+    local answer
+    read -rp "BELABOX jetzt neu starten? [y/N]: " answer < /dev/tty
+    case "$answer" in
+      y|Y|yes|YES|j|J|ja|JA)
+        echo "Starte BELABOX neu..."
+        reboot ;;
+    esac
+  else
+    echo "Kein interaktives Terminal fuer Reboot-Abfrage. Bei Bedarf: sudo reboot"
   fi
 }
 
@@ -413,6 +465,13 @@ check_tunnel() {
   return 1
 }
 
+if [ "$ACTION" = "uninstall" ]; then
+  uninstall_client
+  exit 0
+fi
+
+apt_install_if_missing ca-certificates curl
+
 prompt_value VPS_HOST "VPS-IP oder Domain"
 prompt_value TUNNEL_AUTH "Tunnel-Token aus dem VPS-Script"
 
@@ -486,3 +545,5 @@ Tunnel wieder starten:
   systemctl start ${TUNNEL_SERVICE_NAME}.service
 ==================================================
 EOF
+
+maybe_reboot
