@@ -393,3 +393,11 @@ Browser or widget
 - The bare VPS IP does not expose a BELABOX UI without the access cookie or a valid `?token=` parameter.
 - The BELABOX UI is still protected by its own UI password.
 - Plain IP access uses HTTP between browser and VPS. Use a domain and add HTTPS later if you need transport encryption.
+
+### Lizenz
+
+Dieses Projekt steht unter der GNU General Public License v3.0, passend zu BELABOX/belaUI. Details stehen in der Datei `LICENSE`.
+
+### License
+
+This project is licensed under the GNU General Public License v3.0, matching BELABOX/belaUI. See `LICENSE` for details.
