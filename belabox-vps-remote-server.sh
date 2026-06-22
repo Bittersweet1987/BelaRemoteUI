@@ -289,6 +289,11 @@ map \$arg_token \$belabox_remote_ui_query_allowed {
     "${PUBLIC_TOKEN}" 1;
 }
 
+map \$arg_token \$belabox_remote_ui_query_cookie {
+    default "";
+    "${PUBLIC_TOKEN}" "belabox_remote_token=${PUBLIC_TOKEN}; Path=/; HttpOnly; SameSite=Lax";
+}
+
 map "\$belabox_remote_ui_allowed\$belabox_remote_ui_query_allowed" \$belabox_remote_ui_access_allowed {
     default 0;
     ~1 1;
@@ -314,6 +319,7 @@ server {
         add_header Access-Control-Allow-Origin "*" always;
         add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With" always;
+        add_header Set-Cookie \$belabox_remote_ui_query_cookie always;
 
         if (\$request_method = OPTIONS) {
             return 204;
@@ -437,8 +443,11 @@ und leitet danach auf / weiter. Dadurch sieht die UI aus wie lokal.
 Token fuer externe Widgets:
   ${PUBLIC_TOKEN}
 
-Widget/API-URL ohne Cookie:
+Widget/API-URL mit Token:
   http://${PUBLIC_HOST}/?token=${PUBLIC_TOKEN}
+
+Beim Browser-Aufruf mit ?token= setzt der VPS ebenfalls das Cookie,
+damit CSS/JS-Dateien danach ohne Query-Parameter laden koennen.
 
 WebSocket-URL ohne Cookie:
   ws://${PUBLIC_HOST}/?token=${PUBLIC_TOKEN}
