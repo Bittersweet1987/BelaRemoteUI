@@ -283,6 +283,16 @@ map \$cookie_belabox_remote_token \$belabox_remote_ui_allowed {
     default 0;
     "${PUBLIC_TOKEN}" 1;
 }
+
+map \$arg_token \$belabox_remote_ui_query_allowed {
+    default 0;
+    "${PUBLIC_TOKEN}" 1;
+}
+
+map "\$belabox_remote_ui_allowed\$belabox_remote_ui_query_allowed" \$belabox_remote_ui_access_allowed {
+    default 0;
+    ~1 1;
+}
 EOF
 
   cat > /etc/nginx/sites-available/belabox-remote-ui <<EOF
@@ -301,7 +311,15 @@ server {
     }
 
     location / {
-        if (\$belabox_remote_ui_allowed = 0) {
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With" always;
+
+        if (\$request_method = OPTIONS) {
+            return 204;
+        }
+
+        if (\$belabox_remote_ui_access_allowed = 0) {
             return 404;
         }
 
@@ -415,6 +433,15 @@ Feste Remote-URL:
 
 Beim Aufruf dieser geheimen URL setzt der VPS ein Cookie
 und leitet danach auf / weiter. Dadurch sieht die UI aus wie lokal.
+
+Token fuer externe Widgets:
+  ${PUBLIC_TOKEN}
+
+Widget/API-URL ohne Cookie:
+  http://${PUBLIC_HOST}/?token=${PUBLIC_TOKEN}
+
+WebSocket-URL ohne Cookie:
+  ws://${PUBLIC_HOST}/?token=${PUBLIC_TOKEN}
 
 Chisel-Tunnel-Port:
   ${TUNNEL_SERVER_PORT}/tcp
