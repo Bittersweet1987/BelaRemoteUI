@@ -30,10 +30,10 @@ Pro BELABOX-Profil erzeugt der VPS:
 
 | Wert | Beispiel |
 | --- | --- |
-| Remote-URL | `http://158.180.35.14/r/belabox1/0b9a.../` |
+| Remote-URL | `http://158.180.35.14/r/DEIN_PROFILNAME/0b9a.../` |
 | Widget/API-URL | `http://158.180.35.14/?token=0b9a...` |
 | WebSocket-URL | `ws://158.180.35.14/?token=0b9a...` |
-| Tunnel-Token | `belabox1:abc123...` |
+| Tunnel-Token | `DEIN_PROFILNAME:abc123...` |
 | Interner VPS-Port | `18080`, `18081`, `18082` |
 
 ### Voraussetzungen
@@ -50,21 +50,16 @@ Wenn eine bestehende RTMP-Nginx-Konfiguration erkannt wird, weicht BelaRemoteUI 
 **1. Auf dem VPS ausführen:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile belabox1
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile DEIN_PROFILNAME
 ```
 
-Optional mit Domain:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile belabox1 --domain belabox.example.com
-```
 
 **2. Den ausgegebenen BELABOX-Befehl kopieren.**
 
 Das VPS-Script zeigt am Ende eine komplette Zeile wie diese:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --vps 158.180.35.14 --tunnel-server-port 9090 --tunnel-auth belabox1:DEIN_TOKEN --remote-port 18080 --public-url http://158.180.35.14/r/belabox1/DEIN_LINK/
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --vps 158.180.35.14 --tunnel-server-port 9090 --tunnel-auth DEIN_PROFILNAME:DEIN_TOKEN --remote-port 18080 --public-url http://158.180.35.14/r/DEIN_PROFILNAME/DEIN_LINK/
 ```
 
 **3. Genau diese Zeile auf der passenden BELABOX ausführen.**
@@ -76,7 +71,7 @@ Das BELABOX-Script installiert fehlende Pakete inklusive `curl`, `nodejs`, `gzip
 Für jede weitere BELABOX ein neues Profil auf dem VPS anlegen:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile belabox2
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile WEITERER_PROFILNAME
 ```
 
 Danach wieder den neu ausgegebenen BELABOX-Befehl auf der zweiten BELABOX ausführen.
@@ -90,7 +85,7 @@ belabox-remote-vps-status
 Link eines Profils neu erzeugen:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile belabox1 --regenerate-link
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile DEIN_PROFILNAME --regenerate-link
 ```
 
 ### Nutzung
@@ -98,7 +93,7 @@ curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/b
 Browser:
 
 ```text
-http://158.180.35.14/r/belabox1/0b9a8c7d6e5f4a3b2c1d/
+http://158.180.35.14/r/DEIN_PROFILNAME/0b9a8c7d6e5f4a3b2c1d/
 ```
 
 Widget/API:
@@ -117,13 +112,35 @@ ws://158.180.35.14:8088/?token=0b9a8c7d6e5f4a3b2c1d
 
 ### Verwaltung
 
-| Aktion | Befehl |
-| --- | --- |
-| Profile anzeigen | `belabox-remote-vps-status` |
-| BELABOX-Link anzeigen | `belabox-vps-remote-link` |
-| VPS-Profil löschen | `curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh \| sudo bash -s -- --delete-profile belabox1` |
-| VPS komplett entfernen | `curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh \| sudo bash -s -- --uninstall` |
-| BELABOX-Client entfernen | `curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh \| sudo bash -s -- --uninstall` |
+Profile auf dem VPS anzeigen:
+
+```bash
+belabox-remote-vps-status
+```
+
+Remote-Link auf der BELABOX anzeigen:
+
+```bash
+belabox-vps-remote-link
+```
+
+VPS-Profil löschen:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --delete-profile DEIN_PROFILNAME
+```
+
+VPS-Installation komplett entfernen:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --uninstall
+```
+
+BELABOX-Client entfernen:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --uninstall
+```
 
 Reboot nach Installation:
 
@@ -153,7 +170,7 @@ journalctl -u belabox-vps-remote-ui-tunnel.service -n 80 --no-pager
 Wenn du nur die Nginx-Startseite siehst, das VPS-Script erneut ausführen und Nginx neu starten:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile belabox1 --no-reboot
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile DEIN_PROFILNAME --no-reboot
 sudo nginx -t
 sudo systemctl restart nginx
 ```
@@ -209,7 +226,7 @@ If an existing RTMP Nginx configuration is detected, BelaRemoteUI automatically 
 Run on the VPS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile belabox1
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile YOUR_PROFILE_NAME
 ```
 
 Then copy the complete BELABOX command printed by the VPS script and run it on the matching BELABOX.
@@ -219,7 +236,7 @@ Then copy the complete BELABOX command printed by the VPS script and run it on t
 Create another profile on the same VPS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile belabox2
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --profile ANOTHER_PROFILE_NAME
 ```
 
 Show profiles:
@@ -233,7 +250,7 @@ belabox-remote-vps-status
 Browser:
 
 ```text
-http://158.180.35.14/r/belabox1/0b9a8c7d6e5f4a3b2c1d/
+http://158.180.35.14/r/YOUR_PROFILE_NAME/0b9a8c7d6e5f4a3b2c1d/
 ```
 
 Widget/API:
@@ -245,13 +262,35 @@ ws://158.180.35.14/?token=0b9a8c7d6e5f4a3b2c1d
 
 ### Management
 
-| Action | Command |
-| --- | --- |
-| Show VPS profiles | `belabox-remote-vps-status` |
-| Show BELABOX link | `belabox-vps-remote-link` |
-| Delete VPS profile | `curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh \| sudo bash -s -- --delete-profile belabox1` |
-| Remove VPS install | `curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh \| sudo bash -s -- --uninstall` |
-| Remove BELABOX client | `curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh \| sudo bash -s -- --uninstall` |
+Show VPS profiles:
+
+```bash
+belabox-remote-vps-status
+```
+
+Show the remote link on the BELABOX:
+
+```bash
+belabox-vps-remote-link
+```
+
+Delete one VPS profile:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --delete-profile YOUR_PROFILE_NAME
+```
+
+Remove the VPS installation:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash -s -- --uninstall
+```
+
+Remove the BELABOX client:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --uninstall
+```
 
 ### Troubleshooting
 
