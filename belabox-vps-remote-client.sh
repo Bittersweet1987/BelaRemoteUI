@@ -500,7 +500,17 @@ start_services() {
 
 check_tunnel() {
   echo "Pruefe Tunnel-Verbindung..."
-  sleep 3
+  sleep 5
+
+  local recent_log
+  recent_log="$(journalctl -u "${TUNNEL_SERVICE_NAME}.service" --since "1 minute ago" --no-pager 2>/dev/null || true)"
+
+  if printf '%s\n' "$recent_log" | grep -Eiq 'Permission denied|Authentication failed|remote port forwarding failed|ExitOnForwardFailure|Could not resolve hostname|Connection refused'; then
+    echo "Der Tunnel konnte sich noch nicht mit dem VPS verbinden. Letzte Meldungen:" >&2
+    printf '%s\n' "$recent_log" | tail -n 40 >&2
+    return 1
+  fi
+
   if systemctl is-active --quiet "${TUNNEL_SERVICE_NAME}.service"; then
     return 0
   fi
@@ -532,12 +542,21 @@ write_proxy "$BELABOX_PORT" "$NODE_BIN"
 write_tunnel_service
 write_link_helper
 start_services
-check_tunnel || true
+TUNNEL_OK="0"
+if check_tunnel; then
+  TUNNEL_OK="1"
+fi
+
+if [ "$TUNNEL_OK" = "1" ]; then
+  STATUS_TITLE="BELABOX VPS REMOTE-ZUGANG IST AKTIV"
+else
+  STATUS_TITLE="BELABOX VPS REMOTE-ZUGANG IST NOCH NICHT VERBUNDEN"
+fi
 
 cat <<EOF
 
 ==================================================
-  BELABOX VPS REMOTE-ZUGANG IST AKTIV
+  ${STATUS_TITLE}
 ==================================================
 
 Feste Remote-URL:
@@ -545,6 +564,9 @@ Feste Remote-URL:
 
 Diese URL bleibt gleich, solange du denselben VPS bzw. dieselbe Domain nutzt.
 Der offizielle BELABOX remote key bleibt unveraendert.
+
+Wenn du --skip-key-install genutzt hast, ist ein 502 Bad Gateway normal,
+bis der angezeigte SSH-Key auf dem VPS eingetragen wurde.
 
 Link erneut anzeigen:
   belabox-vps-remote-link
