@@ -46,7 +46,7 @@ Pro BELABOX-Profil erzeugt der VPS:
 - BELABOX mit Terminal- oder SSH-Zugriff
 - Auf dem VPS offen: HTTP-Port `80` oder der ausgegebene Ersatzport, Chisel-Port `9090`, normaler SSH-Management-Port
 
-Wenn auf dem VPS bereits eine RTMP-Nginx-Konfiguration erkannt wird, weicht BelaRemoteUI automatisch auf HTTP-Port `8088` aus. So wird eine bestehende RTMP-Konfiguration nicht überschrieben. Wenn du bewusst einen anderen HTTP-Port möchtest, kannst du später `--public-port PORT` verwenden.
+Wenn auf dem VPS bereits Nginx oder eine RTMP-Nginx-Konfiguration vorhanden ist, weicht BelaRemoteUI automatisch auf HTTP-Port `8088` aus. Vorhandene Nginx-Dateien wie `sites-enabled/default` bleiben dann unangetastet. Wenn du bewusst einen anderen HTTP-Port möchtest, kannst du später `--public-port PORT` verwenden.
 
 ### Installation
 

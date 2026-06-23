@@ -24,6 +24,7 @@ SERVER_NAME="_"
 SERVER_NAME_SET="0"
 ENABLE_UFW="1"
 KEEP_DEFAULT_SITE="0"
+NGINX_EXISTED_BEFORE_INSTALL="0"
 CONFIG_DIR="/etc/belabox-remote-ui"
 PROFILES_DIR="${CONFIG_DIR}/profiles"
 SERVER_CONFIG_FILE="${CONFIG_DIR}/server.conf"
@@ -298,10 +299,10 @@ detect_rtmp_nginx_config() {
 }
 
 choose_public_port() {
-  if [ "$PUBLIC_PORT_SET" = "0" ] && [ "$PUBLIC_PORT" = "80" ] && detect_rtmp_nginx_config; then
+  if [ "$PUBLIC_PORT_SET" = "0" ] && [ "$PUBLIC_PORT" = "80" ] && { detect_rtmp_nginx_config || [ "$NGINX_EXISTED_BEFORE_INSTALL" = "1" ]; }; then
     PUBLIC_PORT="8088"
     KEEP_DEFAULT_SITE="1"
-    echo "RTMP-Nginx-Konfiguration erkannt. BelaRemoteUI nutzt deshalb HTTP-Port ${PUBLIC_PORT}, damit bestehende RTMP/Nginx-Setups nicht ueberschrieben werden."
+    echo "Bestehende Nginx/RTMP-Konfiguration erkannt. BelaRemoteUI nutzt deshalb HTTP-Port ${PUBLIC_PORT}, damit vorhandene Nginx-Setups nicht ueberschrieben werden."
   fi
 }
 
@@ -485,7 +486,7 @@ write_nginx_config() {
   rm -f /etc/nginx/conf.d/belabox-remote-ui-websocket.conf
 
   listen_suffix=" default_server"
-  if [ "$KEEP_DEFAULT_SITE" = "1" ] && [ "$PUBLIC_PORT" = "80" ]; then
+  if [ "$PUBLIC_PORT" = "80" ] && { [ "$KEEP_DEFAULT_SITE" = "1" ] || [ "$NGINX_EXISTED_BEFORE_INSTALL" = "1" ]; }; then
     listen_suffix=""
   fi
 
@@ -609,7 +610,7 @@ EOF
 EOF
   } > "$NGINX_SITE"
 
-  if [ "$KEEP_DEFAULT_SITE" = "0" ]; then
+  if [ "$KEEP_DEFAULT_SITE" = "0" ] && [ "$NGINX_EXISTED_BEFORE_INSTALL" != "1" ]; then
     rm -f /etc/nginx/sites-enabled/default
   fi
 
@@ -753,6 +754,9 @@ if [ "$ACTION" = "list" ]; then
 fi
 
 validate_os
+if dpkg -s nginx >/dev/null 2>&1 || [ -d /etc/nginx ]; then
+  NGINX_EXISTED_BEFORE_INSTALL="1"
+fi
 apt_install_if_missing ca-certificates curl gzip nginx
 install_chisel
 load_server_config
