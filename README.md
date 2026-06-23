@@ -50,7 +50,7 @@ Wenn auf dem VPS bereits Nginx oder eine RTMP-Nginx-Konfiguration vorhanden ist,
 
 Bei Custom-Nginx-Setups, die weder `conf.d` noch `sites-enabled` laden, ergänzt BelaRemoteUI einmalig einen eigenen Include im `http {}`-Block von `/etc/nginx/nginx.conf`. Die eigentliche Remote-Konfiguration bleibt weiterhin in einer separaten BelaRemoteUI-Datei und wird bei `--uninstall` wieder entfernt.
 
-BelaRemoteUI aktiviert UFW nicht automatisch. Falls UFW bereits aktiv ist, ergänzt das Script nur fehlende BelaRemoteUI-Regeln für den HTTP-Port und den Chisel-Port. Bereits vorhandene Regeln werden nicht überschrieben und nicht als BelaRemoteUI-Regeln markiert. Bei einer kompletten Deinstallation werden nur die Regeln entfernt, die BelaRemoteUI selbst neu angelegt hat.
+BelaRemoteUI aktiviert UFW nicht automatisch. Falls UFW bereits aktiv ist, ergänzt das Script nur fehlende BelaRemoteUI-Regeln für den HTTP-Port und den Chisel-Port. Auf Oracle-/Ubuntu-Images mit vorhandener `iptables`-Reject-Regel ergänzt BelaRemoteUI stattdessen eigene `iptables`-ACCEPT-Regeln vor dem Reject. Bereits vorhandene Regeln werden nicht überschrieben und nicht als BelaRemoteUI-Regeln markiert. Bei einer kompletten Deinstallation werden nur die Regeln entfernt, die BelaRemoteUI selbst neu angelegt hat.
 
 Bestehende Dienste wie RTMP auf `1935/tcp`, eine Statistikseite auf `8080/tcp` oder andere eigene Ports bleiben deine eigenen Firewall-Regeln und werden nicht verändert.
 

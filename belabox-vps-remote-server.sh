@@ -13,7 +13,7 @@ set -euo pipefail
 
 ORIGINAL_ARGS=("$@")
 
-SCRIPT_VERSION="2026-06-23-nginx-include-v2"
+SCRIPT_VERSION="2026-06-23-oracle-iptables-v3"
 BASE_REMOTE_PORT="18080"
 BASE_REMOTE_PORT_SET="0"
 TUNNEL_SERVER_PORT="9090"
@@ -32,6 +32,7 @@ AUTH_FILE="${CONFIG_DIR}/users.json"
 PUBLIC_PORT_FILE="${CONFIG_DIR}/public_port"
 SERVER_NAME_FILE="${CONFIG_DIR}/server_name"
 UFW_RULES_FILE="${CONFIG_DIR}/ufw_rules"
+IPTABLES_RULES_FILE="${CONFIG_DIR}/iptables_rules"
 PROFILE=""
 PUBLIC_PATH=""
 TUNNEL_AUTH=""
@@ -759,7 +760,8 @@ configure_firewall() {
 
   if ! have_cmd ufw || ! ufw status 2>/dev/null | grep -qi '^Status: active'; then
     echo "UFW ist nicht aktiv. BelaRemoteUI aktiviert keine Firewall automatisch."
-    echo "Oeffne extern mindestens TCP ${PUBLIC_PORT} und ${TUNNEL_SERVER_PORT}."
+    configure_iptables_fallback
+    echo "Oeffne extern mindestens TCP ${PUBLIC_PORT} und ${TUNNEL_SERVER_PORT} auch in deiner VPS-/Cloud-Firewall."
     echo "Falls du RTMP/Statistiken nutzt, muessen bestehende Ports wie 1935/tcp und 8080/tcp offen bleiben."
     return
   fi
@@ -770,6 +772,70 @@ configure_firewall() {
 
   add_ufw_rule_if_missing "${PUBLIC_PORT}/tcp" "HTTP"
   add_ufw_rule_if_missing "${TUNNEL_SERVER_PORT}/tcp" "Chisel"
+}
+
+iptables_accept_rule_exists() {
+  local port="$1"
+  iptables -C INPUT -p tcp -m tcp --dport "$port" -j ACCEPT >/dev/null 2>&1
+}
+
+first_iptables_reject_line() {
+  iptables -L INPUT --line-numbers -n 2>/dev/null | awk '$2 == "REJECT" { print $1; exit }'
+}
+
+record_iptables_rule() {
+  local port="$1"
+  local comment="$2"
+  grep -Fxq "${port}|${comment}" "$IPTABLES_RULES_FILE" 2>/dev/null || printf '%s|%s\n' "$port" "$comment" >> "$IPTABLES_RULES_FILE"
+}
+
+persist_iptables_if_possible() {
+  if have_cmd netfilter-persistent; then
+    netfilter-persistent save >/dev/null 2>&1 || true
+    return
+  fi
+
+  if [ -d /etc/iptables ]; then
+    iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+  fi
+}
+
+add_iptables_rule_if_missing() {
+  local port="$1"
+  local label="$2"
+  local reject_line comment
+
+  if ! have_cmd iptables; then
+    echo "iptables nicht gefunden. Oeffne TCP ${port} manuell, falls dein VPS eingehende Pakete filtert."
+    return
+  fi
+
+  if iptables_accept_rule_exists "$port"; then
+    echo "iptables-Regel existiert bereits (${label}: ${port}/tcp). Sie wird nicht als BelaRemoteUI-Regel markiert."
+    return
+  fi
+
+  mkdir -p "$CONFIG_DIR"
+  touch "$IPTABLES_RULES_FILE"
+  chmod 600 "$IPTABLES_RULES_FILE"
+
+  comment="BelaRemoteUI ${label} ${port}/tcp"
+  reject_line="$(first_iptables_reject_line || true)"
+
+  echo "Fuege iptables-Regel hinzu (${label}: ${port}/tcp)."
+  if [ -n "$reject_line" ]; then
+    iptables -I INPUT "$reject_line" -p tcp -m tcp --dport "$port" -m comment --comment "$comment" -j ACCEPT
+  else
+    iptables -A INPUT -p tcp -m tcp --dport "$port" -m comment --comment "$comment" -j ACCEPT
+  fi
+
+  record_iptables_rule "$port" "$comment"
+  persist_iptables_if_possible
+}
+
+configure_iptables_fallback() {
+  add_iptables_rule_if_missing "$PUBLIC_PORT" "HTTP"
+  add_iptables_rule_if_missing "$TUNNEL_SERVER_PORT" "Chisel"
 }
 
 ufw_rule_exists() {
@@ -812,6 +878,26 @@ remove_recorded_ufw_rules() {
     ufw delete allow "$rule" >/dev/null 2>&1 || true
   done < "$UFW_RULES_FILE"
   rm -f "$UFW_RULES_FILE"
+}
+
+remove_recorded_iptables_rules() {
+  local line port comment
+
+  if ! have_cmd iptables || [ ! -s "$IPTABLES_RULES_FILE" ]; then
+    return
+  fi
+
+  echo "Entferne von BelaRemoteUI angelegte iptables-Regeln..."
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    port="${line%%|*}"
+    comment="${line#*|}"
+    while iptables -C INPUT -p tcp -m tcp --dport "$port" -m comment --comment "$comment" -j ACCEPT >/dev/null 2>&1; do
+      iptables -D INPUT -p tcp -m tcp --dport "$port" -m comment --comment "$comment" -j ACCEPT >/dev/null 2>&1 || break
+    done
+  done < "$IPTABLES_RULES_FILE"
+  rm -f "$IPTABLES_RULES_FILE"
+  persist_iptables_if_possible
 }
 
 write_status_helper() {
@@ -909,6 +995,7 @@ uninstall_all() {
   nginx -t >/dev/null 2>&1 && systemctl restart nginx || true
 
   remove_recorded_ufw_rules
+  remove_recorded_iptables_rules
 
   rm -rf "$CONFIG_DIR"
   rm -f /usr/local/bin/belabox-remote-vps-status
