@@ -871,9 +871,9 @@ Tunnel-Token:
   ${tunnel_auth}
 
 Naechster Schritt auf der BELABOX:
-  curl -fsSL ${CLIENT_SCRIPT_URL} | sudo bash -s -- --vps ${public_host_value} --tunnel-server-port ${TUNNEL_SERVER_PORT} --tunnel-auth ${tunnel_auth} --remote-port ${remote_port} --public-url ${public_url}
+  sudo sh -c 'command -v curl >/dev/null 2>&1 || (apt-get update && apt-get install -y curl)' && curl -fsSL ${CLIENT_SCRIPT_URL} | sudo bash -s -- --vps ${public_host_value} --tunnel-server-port ${TUNNEL_SERVER_PORT} --tunnel-auth ${tunnel_auth} --remote-port ${remote_port} --public-url ${public_url}
 
-Wichtig: Diese komplette Curl-Zeile auf der BELABOX ausfuehren.
+Wichtig: Diese komplette Zeile auf der BELABOX ausfuehren.
 
 Dieses Profil loeschen:
   curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash -s -- --delete-profile ${PROFILE}

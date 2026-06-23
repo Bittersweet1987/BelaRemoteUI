@@ -82,10 +82,10 @@ Kopiere den kompletten Befehl aus der VPS-Ausgabe und führe genau diesen auf de
 Er sieht ungefähr so aus:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --vps 158.180.35.14 --tunnel-server-port 9090 --tunnel-auth DEIN_PROFILNAME:DEIN_TOKEN --remote-port 18080 --public-url http://158.180.35.14/r/DEIN_PROFILNAME/DEIN_LINK/
+sudo sh -c 'command -v curl >/dev/null 2>&1 || (apt-get update && apt-get install -y curl)' && curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --vps 158.180.35.14 --tunnel-server-port 9090 --tunnel-auth DEIN_PROFILNAME:DEIN_TOKEN --remote-port 18080 --public-url http://158.180.35.14/r/DEIN_PROFILNAME/DEIN_LINK/
 ```
 
-Das BELABOX-Script installiert fehlende Pakete wie `curl`, `nodejs`, `gzip` und Chisel. Danach richtet es den lokalen Proxy ein und startet den dauerhaften Tunnel zum VPS.
+Die vom VPS ausgegebene BELABOX-Zeile installiert `curl` automatisch, falls es auf der BELABOX noch fehlt. Das BELABOX-Script installiert danach weitere fehlende Pakete wie `nodejs`, `gzip` und Chisel, richtet den lokalen Proxy ein und startet den dauerhaften Tunnel zum VPS.
 
 #### 3. Neustart
 
@@ -263,7 +263,7 @@ Run this on the VPS and enter a profile name when asked:
 curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
 ```
 
-Then copy the complete BELABOX command printed by the VPS script and run it on the matching BELABOX.
+Then copy the complete BELABOX command printed by the VPS script and run it on the matching BELABOX. The printed command installs `curl` first if the BELABOX does not have it yet.
 
 ### Multiple BELABOX Units
 
