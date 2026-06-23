@@ -63,7 +63,7 @@ Installation / Profile:
   --ssh-port PORT         SSH-Management-Port des VPS fuer UFW (Standard: 22)
   --public-path PATH      Fester geheimer URL-Pfad, sonst automatisch erzeugt
   --regenerate-link       Neuen geheimen URL-Pfad fuer dieses Profil erzeugen
-  --no-ufw                UFW nicht konfigurieren/aktivieren
+  --no-ufw                UFW nicht konfigurieren
   --keep-default-site     Nginx default site nicht deaktivieren
 
 Verwaltung:
@@ -626,15 +626,17 @@ configure_firewall() {
     return
   fi
 
-  if ! have_cmd ufw; then
-    apt_install_if_missing ufw
+  if ! have_cmd ufw || ! ufw status 2>/dev/null | grep -qi '^Status: active'; then
+    echo "UFW ist nicht aktiv. BelaRemoteUI aktiviert keine Firewall automatisch."
+    echo "Oeffne extern mindestens TCP ${PUBLIC_PORT}, ${TUNNEL_SERVER_PORT} und deinen SSH-Management-Port."
+    echo "Falls du RTMP/Statistiken nutzt, muessen bestehende Ports wie 1935/tcp und 8080/tcp offen bleiben."
+    return
   fi
 
-  echo "Oeffne Firewall-Ports: SSH ${SSH_PORT}/tcp, HTTP ${PUBLIC_PORT}/tcp, Tunnel ${TUNNEL_SERVER_PORT}/tcp"
+  echo "UFW ist aktiv. Oeffne BelaRemoteUI-Ports: SSH ${SSH_PORT}/tcp, HTTP ${PUBLIC_PORT}/tcp, Tunnel ${TUNNEL_SERVER_PORT}/tcp"
   ufw allow "${SSH_PORT}/tcp" >/dev/null || true
   ufw allow "${PUBLIC_PORT}/tcp" >/dev/null || true
   ufw allow "${TUNNEL_SERVER_PORT}/tcp" >/dev/null || true
-  echo "y" | ufw enable >/dev/null || true
 }
 
 write_status_helper() {

@@ -48,6 +48,8 @@ Pro BELABOX-Profil erzeugt der VPS:
 
 Wenn auf dem VPS bereits Nginx oder eine RTMP-Nginx-Konfiguration vorhanden ist, weicht BelaRemoteUI automatisch auf HTTP-Port `8088` aus. Vorhandene Nginx-Dateien wie `sites-enabled/default` bleiben dann unangetastet. Wenn du bewusst einen anderen HTTP-Port möchtest, kannst du später `--public-port PORT` verwenden.
 
+BelaRemoteUI aktiviert UFW nicht automatisch. Falls UFW bereits aktiv ist, werden nur die BelaRemoteUI-Ports ergänzt. Bestehende Dienste wie RTMP auf `1935/tcp` oder eine Statistikseite auf `8080/tcp` müssen weiterhin in deiner Firewall erlaubt bleiben.
+
 ### Installation
 
 #### 1. VPS vorbereiten
@@ -203,6 +205,20 @@ Wenn der Browser `502 Bad Gateway` zeigt, ist Nginx erreichbar, aber der Tunnel 
 ```bash
 systemctl status belabox-vps-remote-ui-tunnel.service
 journalctl -u belabox-vps-remote-ui-tunnel.service -n 80 --no-pager
+```
+
+Wenn RTMP oder eine bestehende Statistikseite nach einem alten Installationsversuch nicht mehr erreichbar ist, prüfe zuerst UFW:
+
+```bash
+sudo ufw status
+sudo ufw allow 1935/tcp
+sudo ufw allow 8080/tcp
+```
+
+Wenn du UFW vorher gar nicht nutzen wolltest:
+
+```bash
+sudo ufw disable
 ```
 
 ### Sicherheit
