@@ -13,6 +13,7 @@ set -euo pipefail
 
 ORIGINAL_ARGS=("$@")
 
+SCRIPT_VERSION="2026-06-23-nginx-include-v2"
 BASE_REMOTE_PORT="18080"
 BASE_REMOTE_PORT_SET="0"
 TUNNEL_SERVER_PORT="9090"
@@ -1039,6 +1040,7 @@ if [ "$ACTION" = "list" ]; then
 fi
 
 validate_os
+echo "BelaRemoteUI Server-Script-Version: ${SCRIPT_VERSION}"
 if dpkg -s nginx >/dev/null 2>&1 || [ -d /etc/nginx ]; then
   NGINX_EXISTED_BEFORE_INSTALL="1"
 fi
