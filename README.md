@@ -48,7 +48,9 @@ Pro BELABOX-Profil erzeugt der VPS:
 
 Wenn auf dem VPS bereits Nginx oder eine RTMP-Nginx-Konfiguration vorhanden ist, weicht BelaRemoteUI automatisch auf HTTP-Port `8088` aus. Vorhandene Nginx-Dateien wie `sites-enabled/default` bleiben dann unangetastet. Wenn du bewusst einen anderen HTTP-Port möchtest, kannst du später `--public-port PORT` verwenden.
 
-BelaRemoteUI aktiviert UFW nicht automatisch. Falls UFW bereits aktiv ist, werden nur die BelaRemoteUI-Ports ergänzt. Bestehende Dienste wie RTMP auf `1935/tcp` oder eine Statistikseite auf `8080/tcp` müssen weiterhin in deiner Firewall erlaubt bleiben.
+BelaRemoteUI aktiviert UFW nicht automatisch. Falls UFW bereits aktiv ist, ergänzt das Script nur fehlende BelaRemoteUI-Regeln für den HTTP-Port und den Chisel-Port. Bereits vorhandene Regeln werden nicht überschrieben und nicht als BelaRemoteUI-Regeln markiert. Bei einer kompletten Deinstallation werden nur die Regeln entfernt, die BelaRemoteUI selbst neu angelegt hat.
+
+Bestehende Dienste wie RTMP auf `1935/tcp`, eine Statistikseite auf `8080/tcp` oder andere eigene Ports bleiben deine eigenen Firewall-Regeln und werden nicht verändert.
 
 ### Installation
 
@@ -172,7 +174,7 @@ BELABOX-Client entfernen:
 curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh | sudo bash -s -- --uninstall
 ```
 
-Die Löschroutinen entfernen nur BelaRemoteUI-Dateien, Services und die eigenen Nginx-Dateien. BELABOX-UI, offizieller Remote-Key und fremde RTMP/Nginx-Konfigurationen bleiben unangetastet.
+Die Löschroutinen entfernen nur BelaRemoteUI-Dateien, Services, eigene Nginx-Dateien und von BelaRemoteUI selbst neu angelegte UFW-Regeln. BELABOX-UI, offizieller Remote-Key, fremde RTMP/Nginx-Konfigurationen und bereits vorher vorhandene Firewall-Regeln bleiben unangetastet.
 
 ### Fehlerbehebung
 

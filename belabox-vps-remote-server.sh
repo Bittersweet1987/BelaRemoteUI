@@ -19,7 +19,6 @@ TUNNEL_SERVER_PORT="9090"
 TUNNEL_SERVER_PORT_SET="0"
 PUBLIC_PORT="80"
 PUBLIC_PORT_SET="0"
-SSH_PORT="22"
 SERVER_NAME="_"
 SERVER_NAME_SET="0"
 ENABLE_UFW="1"
@@ -31,6 +30,7 @@ SERVER_CONFIG_FILE="${CONFIG_DIR}/server.conf"
 AUTH_FILE="${CONFIG_DIR}/users.json"
 PUBLIC_PORT_FILE="${CONFIG_DIR}/public_port"
 SERVER_NAME_FILE="${CONFIG_DIR}/server_name"
+UFW_RULES_FILE="${CONFIG_DIR}/ufw_rules"
 PROFILE=""
 PUBLIC_PATH=""
 TUNNEL_AUTH=""
@@ -60,7 +60,7 @@ Installation / Profile:
   --tunnel-server-port P  Oeffentlicher Chisel-Tunnel-Port (Standard: 9090)
   --remote-port PORT      Interner Reverse-Tunnel-Port fuer dieses Profil
   --tunnel-auth USER:PASS Chisel-Token, sonst automatisch erzeugt
-  --ssh-port PORT         SSH-Management-Port des VPS fuer UFW (Standard: 22)
+  --ssh-port PORT         Veraltet. SSH-Firewall-Regeln werden nicht mehr veraendert.
   --public-path PATH      Fester geheimer URL-Pfad, sonst automatisch erzeugt
   --regenerate-link       Neuen geheimen URL-Pfad fuer dieses Profil erzeugen
   --no-ufw                UFW nicht konfigurieren
@@ -101,7 +101,8 @@ while [ "$#" -gt 0 ]; do
     --tunnel-auth)
       TUNNEL_AUTH="$2"; shift 2 ;;
     --ssh-port)
-      SSH_PORT="$2"; shift 2 ;;
+      echo "Hinweis: --ssh-port ist veraltet. SSH-Firewall-Regeln werden nicht mehr veraendert." >&2
+      shift 2 ;;
     --public-path)
       PUBLIC_PATH="$2"; shift 2 ;;
     --regenerate-link)
@@ -622,21 +623,65 @@ EOF
 
 configure_firewall() {
   if [ "$ENABLE_UFW" != "1" ]; then
-    echo "UFW-Konfiguration uebersprungen. Oeffne extern mindestens TCP ${PUBLIC_PORT}, ${TUNNEL_SERVER_PORT} und deinen SSH-Management-Port."
+    echo "UFW-Konfiguration uebersprungen. Oeffne extern mindestens TCP ${PUBLIC_PORT} und ${TUNNEL_SERVER_PORT}."
     return
   fi
 
   if ! have_cmd ufw || ! ufw status 2>/dev/null | grep -qi '^Status: active'; then
     echo "UFW ist nicht aktiv. BelaRemoteUI aktiviert keine Firewall automatisch."
-    echo "Oeffne extern mindestens TCP ${PUBLIC_PORT}, ${TUNNEL_SERVER_PORT} und deinen SSH-Management-Port."
+    echo "Oeffne extern mindestens TCP ${PUBLIC_PORT} und ${TUNNEL_SERVER_PORT}."
     echo "Falls du RTMP/Statistiken nutzt, muessen bestehende Ports wie 1935/tcp und 8080/tcp offen bleiben."
     return
   fi
 
-  echo "UFW ist aktiv. Oeffne BelaRemoteUI-Ports: SSH ${SSH_PORT}/tcp, HTTP ${PUBLIC_PORT}/tcp, Tunnel ${TUNNEL_SERVER_PORT}/tcp"
-  ufw allow "${SSH_PORT}/tcp" >/dev/null || true
-  ufw allow "${PUBLIC_PORT}/tcp" >/dev/null || true
-  ufw allow "${TUNNEL_SERVER_PORT}/tcp" >/dev/null || true
+  mkdir -p "$CONFIG_DIR"
+  touch "$UFW_RULES_FILE"
+  chmod 600 "$UFW_RULES_FILE"
+
+  add_ufw_rule_if_missing "${PUBLIC_PORT}/tcp" "HTTP"
+  add_ufw_rule_if_missing "${TUNNEL_SERVER_PORT}/tcp" "Chisel"
+}
+
+ufw_rule_exists() {
+  local rule="$1"
+  ufw status 2>/dev/null | grep -Eq "^${rule}[[:space:]]+ALLOW"
+}
+
+record_ufw_rule() {
+  local rule="$1"
+  grep -Fxq "$rule" "$UFW_RULES_FILE" 2>/dev/null || printf '%s\n' "$rule" >> "$UFW_RULES_FILE"
+}
+
+add_ufw_rule_if_missing() {
+  local rule="$1"
+  local label="$2"
+
+  if ufw_rule_exists "$rule"; then
+    echo "UFW-Regel existiert bereits (${label}: ${rule}). Sie wird nicht als BelaRemoteUI-Regel markiert."
+    return
+  fi
+
+  echo "UFW ist aktiv. Fuege BelaRemoteUI-Regel hinzu (${label}: ${rule})."
+  if ufw allow "$rule" >/dev/null; then
+    record_ufw_rule "$rule"
+  else
+    echo "Warnung: UFW-Regel konnte nicht gesetzt werden (${rule})." >&2
+  fi
+}
+
+remove_recorded_ufw_rules() {
+  local rule
+
+  if ! have_cmd ufw || [ ! -s "$UFW_RULES_FILE" ]; then
+    return
+  fi
+
+  echo "Entferne von BelaRemoteUI angelegte UFW-Regeln..."
+  while IFS= read -r rule; do
+    [ -n "$rule" ] || continue
+    ufw delete allow "$rule" >/dev/null 2>&1 || true
+  done < "$UFW_RULES_FILE"
+  rm -f "$UFW_RULES_FILE"
 }
 
 write_status_helper() {
@@ -713,6 +758,8 @@ uninstall_all() {
 
   rm -f "$NGINX_CONF" "$NGINX_SITE_LINK" "$NGINX_SITE"
   nginx -t >/dev/null 2>&1 && systemctl restart nginx || true
+
+  remove_recorded_ufw_rules
 
   rm -rf "$CONFIG_DIR"
   rm -f /usr/local/bin/belabox-remote-vps-status
