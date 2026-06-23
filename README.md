@@ -190,6 +190,17 @@ systemctl status belabox-remote-ui-chisel.service
 systemctl status nginx
 ```
 
+Wenn die URL einen Port enthält, zum Beispiel `http://DEIN_VPS:8088/r/...`, muss genau dieser TCP-Port auch in der externen VPS-/Cloud-Firewall freigegeben sein. Zusätzlich muss TCP `9090` für den BELABOX-Tunnel offen sein. Bei Cloud-Anbietern reicht UFW auf dem Server allein oft nicht aus, weil es zusätzlich Security Lists, Firewall-Regeln oder Cloud-Firewalls gibt.
+
+Schnelltest von deinem Windows-PC:
+
+```powershell
+Test-NetConnection DEIN_VPS -Port 8088
+Test-NetConnection DEIN_VPS -Port 9090
+```
+
+Wenn `TcpTestSucceeded` dort `False` ist, kommt die Anfrage gar nicht beim VPS an. Dann zuerst die Provider-Firewall für diese Ports öffnen.
+
 BELABOX prüfen:
 
 ```bash
@@ -329,6 +340,15 @@ belabox-remote-vps-status
 systemctl status belabox-remote-ui-chisel.service
 systemctl status nginx
 ```
+
+If the URL contains a port such as `http://YOUR_VPS:8088/r/...`, that TCP port must be open in the external VPS/cloud firewall. TCP `9090` must also be open for the BELABOX tunnel. Quick check from Windows:
+
+```powershell
+Test-NetConnection YOUR_VPS -Port 8088
+Test-NetConnection YOUR_VPS -Port 9090
+```
+
+If `TcpTestSucceeded` is `False`, the request does not reach the VPS yet. Open the provider firewall/security group first.
 
 BELABOX:
 

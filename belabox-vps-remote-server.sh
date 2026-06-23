@@ -727,8 +727,21 @@ write_status_helper() {
 #!/bin/sh
 CONFIG_DIR="/etc/belabox-remote-ui"
 PROFILES_DIR="${CONFIG_DIR}/profiles"
+PUBLIC_PORT="80"
+TUNNEL_SERVER_PORT="9090"
+
+if [ -r "${CONFIG_DIR}/server.conf" ]; then
+  # shellcheck disable=SC1091
+  . "${CONFIG_DIR}/server.conf"
+fi
 
 echo "=== BELABOX VPS Remote UI Status ==="
+echo "Oeffentlicher HTTP-Port: ${PUBLIC_PORT}"
+echo "Chisel-Tunnel-Port: ${TUNNEL_SERVER_PORT}"
+echo ""
+echo "Externe Firewall / Security Group:"
+echo "  Von aussen muessen TCP ${PUBLIC_PORT} fuer die Webseite und TCP ${TUNNEL_SERVER_PORT} fuer den BELABOX-Tunnel offen sein."
+echo "  Wenn die URL im Browser nicht laedt, pruefe besonders diese Provider-Firewall-Regeln."
 echo ""
 echo "Profile:"
 if [ -d "$PROFILES_DIR" ]; then
@@ -738,10 +751,15 @@ if [ -d "$PROFILES_DIR" ]; then
     url="$(cat "$dir/public_url" 2>/dev/null || true)"
     port="$(cat "$dir/remote_port" 2>/dev/null || true)"
     auth="$(cat "$dir/tunnel_auth" 2>/dev/null || true)"
+    path="$(cat "$dir/public_path" 2>/dev/null || true)"
     echo "  ${name}"
     echo "    URL: ${url}"
     echo "    Token: ${auth}"
     echo "    VPS-Port: ${port}"
+    if command -v curl >/dev/null 2>&1 && [ -n "$path" ]; then
+      status_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3 "http://127.0.0.1:${PUBLIC_PORT}/${path}/" 2>/dev/null || echo "failed")"
+      echo "    Lokaler VPS-HTTP-Test: ${status_code}"
+    fi
   done
 else
   echo "  Keine Profile gefunden."
@@ -755,9 +773,9 @@ systemctl --no-pager --full status belabox-remote-ui-chisel.service | sed -n '1,
 echo ""
 echo "Ports:"
 if command -v ss >/dev/null 2>&1; then
-  ss -ltnp | grep -E ':(9090|180[0-9][0-9]) ' || true
+  ss -ltnp | grep -E ":(${PUBLIC_PORT}|${TUNNEL_SERVER_PORT}|180[0-9][0-9])[[:space:]]" || true
 else
-  netstat -ltnp 2>/dev/null | grep -E ':(9090|180[0-9][0-9]) ' || true
+  netstat -ltnp 2>/dev/null | grep -E ":(${PUBLIC_PORT}|${TUNNEL_SERVER_PORT}|180[0-9][0-9])[[:space:]]" || true
 fi
 EOF
   chmod 0755 /usr/local/bin/belabox-remote-vps-status
@@ -864,6 +882,10 @@ WebSocket-URL ohne Cookie:
 Chisel-Tunnel-Port:
   ${TUNNEL_SERVER_PORT}/tcp
 
+Externe VPS-/Cloud-Firewall:
+  TCP ${PUBLIC_PORT} fuer die Remote-Webseite freigeben
+  TCP ${TUNNEL_SERVER_PORT} fuer den BELABOX-Tunnel freigeben
+
 Interner VPS-Port fuer dieses Profil:
   ${remote_port}/tcp
 
@@ -874,6 +896,7 @@ Naechster Schritt auf der BELABOX:
   sudo sh -c 'command -v curl >/dev/null 2>&1 || (apt-get update && apt-get install -y curl)' && curl -fsSL ${CLIENT_SCRIPT_URL} | sudo bash -s -- --vps ${public_host_value} --tunnel-server-port ${TUNNEL_SERVER_PORT} --tunnel-auth ${tunnel_auth} --remote-port ${remote_port} --public-url ${public_url}
 
 Wichtig: Diese komplette Zeile auf der BELABOX ausfuehren.
+Wenn die Remote-URL nicht laedt, ist meistens TCP ${PUBLIC_PORT} in der VPS-/Cloud-Firewall nicht extern freigegeben.
 
 Dieses Profil loeschen:
   curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash -s -- --delete-profile ${PROFILE}
