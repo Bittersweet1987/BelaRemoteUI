@@ -44,9 +44,9 @@ Pro BELABOX-Profil erzeugt der VPS:
 - VPS mit Ubuntu 24.04 oder Ubuntu 26.04
 - Root- oder sudo-Zugriff auf VPS und BELABOX
 - BELABOX mit Terminal- oder SSH-Zugriff
-- Auf dem VPS offen: HTTP-Port `80` oder der ausgegebene Ersatzport, Chisel-Port `9090`, normaler SSH-Management-Port
+- Auf dem VPS offen: HTTP-Port `80` oder der vom Script ausgegebene freie Ersatzport, Chisel-Port `9090`, normaler SSH-Management-Port
 
-Wenn auf dem VPS bereits Nginx oder eine RTMP-Nginx-Konfiguration vorhanden ist, weicht BelaRemoteUI automatisch auf HTTP-Port `8088` aus. Vorhandene Nginx-Dateien wie `sites-enabled/default` bleiben dann unangetastet. Wenn du bewusst einen anderen HTTP-Port möchtest, kannst du später `--public-port PORT` verwenden.
+Wenn auf dem VPS bereits Nginx oder eine RTMP-Nginx-Konfiguration vorhanden ist, sucht BelaRemoteUI automatisch einen freien HTTP-Port ab `8088`. Ist `8088` bereits belegt, wird der nächste freie Port probiert. Vorhandene Nginx-Dateien wie `sites-enabled/default` bleiben dann unangetastet. Wenn du bewusst einen bestimmten HTTP-Port möchtest, kannst du `--public-port PORT` verwenden. Ist dieser Port bereits belegt, bricht das Script mit einer klaren Meldung ab.
 
 BelaRemoteUI aktiviert UFW nicht automatisch. Falls UFW bereits aktiv ist, ergänzt das Script nur fehlende BelaRemoteUI-Regeln für den HTTP-Port und den Chisel-Port. Bereits vorhandene Regeln werden nicht überschrieben und nicht als BelaRemoteUI-Regeln markiert. Bei einer kompletten Deinstallation werden nur die Regeln entfernt, die BelaRemoteUI selbst neu angelegt hat.
 
@@ -135,11 +135,11 @@ http://158.180.35.14/?token=0b9a8c7d6e5f4a3b2c1d
 ws://158.180.35.14/?token=0b9a8c7d6e5f4a3b2c1d
 ```
 
-Wenn BelaRemoteUI wegen RTMP auf Port `8088` ausweicht:
+Wenn BelaRemoteUI wegen vorhandenem Nginx/RTMP auf einen Ersatzport ausweicht:
 
 ```text
-http://158.180.35.14:8088/?token=0b9a8c7d6e5f4a3b2c1d
-ws://158.180.35.14:8088/?token=0b9a8c7d6e5f4a3b2c1d
+http://158.180.35.14:AUSGEGEBENER_PORT/?token=0b9a8c7d6e5f4a3b2c1d
+ws://158.180.35.14:AUSGEGEBENER_PORT/?token=0b9a8c7d6e5f4a3b2c1d
 ```
 
 ### Verwaltung

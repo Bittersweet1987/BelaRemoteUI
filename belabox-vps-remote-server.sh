@@ -56,7 +56,7 @@ Nutzung:
 Installation / Profile:
   --profile NAME          Name der BELABOX auf diesem VPS (sonst Abfrage)
   --domain NAME           Domain, die auf diesen VPS zeigt (optional)
-  --public-port PORT      Oeffentlicher HTTP-Port (Standard: 80, bei RTMP-Konflikt automatisch 8088)
+  --public-port PORT      Oeffentlicher HTTP-Port (Standard: 80, bei bestehendem Nginx automatisch naechster freier Port ab 8088)
   --tunnel-server-port P  Oeffentlicher Chisel-Tunnel-Port (Standard: 9090)
   --remote-port PORT      Interner Reverse-Tunnel-Port fuer dieses Profil
   --tunnel-auth USER:PASS Chisel-Token, sonst automatisch erzeugt
@@ -299,11 +299,49 @@ detect_rtmp_nginx_config() {
   grep -RIl '^[[:space:]]*rtmp[[:space:]]*{' /etc/nginx 2>/dev/null | grep -q .
 }
 
+port_in_use() {
+  local port="$1"
+
+  if have_cmd ss; then
+    ss -ltn 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${port}$"
+    return
+  fi
+
+  if have_cmd netstat; then
+    netstat -ltn 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${port}$"
+    return
+  fi
+
+  return 1
+}
+
+next_free_public_port() {
+  local port="${1:-8088}"
+
+  while port_in_use "$port"; do
+    port="$((port + 1))"
+    if [ "$port" -gt 65535 ]; then
+      echo "Konnte keinen freien HTTP-Port finden." >&2
+      exit 1
+    fi
+  done
+
+  echo "$port"
+}
+
 choose_public_port() {
-  if [ "$PUBLIC_PORT_SET" = "0" ] && [ "$PUBLIC_PORT" = "80" ] && { detect_rtmp_nginx_config || [ "$NGINX_EXISTED_BEFORE_INSTALL" = "1" ]; }; then
-    PUBLIC_PORT="8088"
+  if [ "$PUBLIC_PORT_SET" = "1" ]; then
+    if port_in_use "$PUBLIC_PORT"; then
+      echo "Der gewuenschte HTTP-Port ${PUBLIC_PORT} ist bereits belegt. Bitte mit --public-port einen freien Port waehlen." >&2
+      exit 1
+    fi
+    return
+  fi
+
+  if [ "$PUBLIC_PORT" = "80" ] && { detect_rtmp_nginx_config || [ "$NGINX_EXISTED_BEFORE_INSTALL" = "1" ]; }; then
+    PUBLIC_PORT="$(next_free_public_port 8088)"
     KEEP_DEFAULT_SITE="1"
-    echo "Bestehende Nginx/RTMP-Konfiguration erkannt. BelaRemoteUI nutzt deshalb HTTP-Port ${PUBLIC_PORT}, damit vorhandene Nginx-Setups nicht ueberschrieben werden."
+    echo "Bestehende Nginx/RTMP-Konfiguration erkannt. BelaRemoteUI nutzt deshalb den freien HTTP-Port ${PUBLIC_PORT}, damit vorhandene Nginx-Setups nicht ueberschrieben werden."
   fi
 }
 
