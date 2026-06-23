@@ -523,6 +523,7 @@ write_nginx_config() {
   local dir token port path listen_suffix
   echo "Konfiguriere Nginx als oeffentlichen Empfaenger..."
   rm -f /etc/nginx/conf.d/belabox-remote-ui-websocket.conf
+  rm -f "$NGINX_SITE_LINK" "$NGINX_SITE"
 
   listen_suffix=" default_server"
   if [ "$PUBLIC_PORT" = "80" ] && { [ "$KEEP_DEFAULT_SITE" = "1" ] || [ "$NGINX_EXISTED_BEFORE_INSTALL" = "1" ]; }; then
@@ -647,16 +648,44 @@ EOF
     }
 }
 EOF
-  } > "$NGINX_SITE"
+  } >> "$NGINX_CONF"
 
   if [ "$KEEP_DEFAULT_SITE" = "0" ] && [ "$NGINX_EXISTED_BEFORE_INSTALL" != "1" ]; then
     rm -f /etc/nginx/sites-enabled/default
   fi
 
-  ln -sfn "$NGINX_SITE" "$NGINX_SITE_LINK"
   nginx -t
   systemctl enable nginx >/dev/null
   systemctl restart nginx
+  verify_nginx_listening
+}
+
+nginx_port_listening() {
+  if have_cmd ss; then
+    ss -ltn | awk 'NR > 1 {print $4}' | grep -Eq "(^|:)${PUBLIC_PORT}$"
+    return
+  fi
+
+  if have_cmd netstat; then
+    netstat -ltn 2>/dev/null | awk 'NR > 2 {print $4}' | grep -Eq "(^|:)${PUBLIC_PORT}$"
+    return
+  fi
+
+  return 0
+}
+
+verify_nginx_listening() {
+  sleep 1
+  if nginx_port_listening; then
+    return
+  fi
+
+  echo "Nginx wurde neu gestartet, lauscht aber nicht auf TCP ${PUBLIC_PORT}." >&2
+  echo "Sehr wahrscheinlich bindet die vorhandene Nginx-Konfiguration /etc/nginx/conf.d/*.conf nicht ein." >&2
+  echo "Pruefe auf dem VPS:" >&2
+  echo "  sudo nginx -T | grep -n belabox-remote-ui" >&2
+  echo "  sudo ss -ltnp | grep ':${PUBLIC_PORT} '" >&2
+  exit 1
 }
 
 configure_firewall() {
