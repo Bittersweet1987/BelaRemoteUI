@@ -43,6 +43,7 @@ CHISEL_SERVICE_NAME="belabox-remote-ui-chisel"
 NGINX_CONF="/etc/nginx/conf.d/belabox-remote-ui.conf"
 NGINX_SITE="/etc/nginx/sites-available/belabox-remote-ui"
 NGINX_SITE_LINK="/etc/nginx/sites-enabled/belabox-remote-ui"
+NGINX_MAIN_CONF="/etc/nginx/nginx.conf"
 SERVER_SCRIPT_URL="https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh"
 CLIENT_SCRIPT_URL="https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-client.sh"
 
@@ -649,6 +650,7 @@ EOF
 }
 EOF
   } >> "$NGINX_CONF"
+  ensure_nginx_conf_loaded
 
   if [ "$KEEP_DEFAULT_SITE" = "0" ] && [ "$NGINX_EXISTED_BEFORE_INSTALL" != "1" ]; then
     rm -f /etc/nginx/sites-enabled/default
@@ -658,6 +660,66 @@ EOF
   systemctl enable nginx >/dev/null
   systemctl restart nginx
   verify_nginx_listening
+}
+
+ensure_nginx_conf_loaded() {
+  local tmp backup
+
+  if nginx -T 2>&1 | grep -Fq "$NGINX_CONF"; then
+    return
+  fi
+
+  if grep -Fq "include ${NGINX_CONF};" "$NGINX_MAIN_CONF" 2>/dev/null; then
+    return
+  fi
+
+  echo "Nginx bindet ${NGINX_CONF} noch nicht ein. Fuege BelaRemoteUI-Include in ${NGINX_MAIN_CONF} ein..."
+  backup="${NGINX_MAIN_CONF}.belaremoteui.$(date +%Y%m%d%H%M%S).bak"
+  cp "$NGINX_MAIN_CONF" "$backup"
+
+  tmp="$(mktemp)"
+  if ! awk -v include_file="$NGINX_CONF" '
+    BEGIN { inserted = 0 }
+    /^[[:space:]]*http[[:space:]]*\{/ && inserted == 0 {
+      print
+      print ""
+      print "    # Added by BelaRemoteUI. Remote UI config stays in its own file."
+      print "    include " include_file ";"
+      inserted = 1
+      next
+    }
+    { print }
+    END {
+      if (inserted == 0) {
+        exit 42
+      }
+    }
+  ' "$NGINX_MAIN_CONF" > "$tmp"; then
+    rm -f "$tmp"
+    echo "Konnte keinen http-Block in ${NGINX_MAIN_CONF} finden. Backup liegt unter ${backup}." >&2
+    exit 1
+  fi
+
+  cp "$tmp" "$NGINX_MAIN_CONF"
+  rm -f "$tmp"
+  echo "Backup der vorherigen Nginx-Hauptkonfiguration: ${backup}"
+}
+
+remove_nginx_main_include() {
+  local tmp
+
+  [ -f "$NGINX_MAIN_CONF" ] || return
+  if ! grep -Fq "Added by BelaRemoteUI" "$NGINX_MAIN_CONF" && ! grep -Fq "include ${NGINX_CONF};" "$NGINX_MAIN_CONF"; then
+    return
+  fi
+
+  tmp="$(mktemp)"
+  sed \
+    -e '/^[[:space:]]*# Added by BelaRemoteUI\. Remote UI config stays in its own file\.[[:space:]]*$/d' \
+    -e "\#^[[:space:]]*include ${NGINX_CONF};[[:space:]]*$#d" \
+    "$NGINX_MAIN_CONF" > "$tmp"
+  cp "$tmp" "$NGINX_MAIN_CONF"
+  rm -f "$tmp"
 }
 
 nginx_port_listening() {
@@ -841,6 +903,7 @@ uninstall_all() {
   rm -f "/etc/systemd/system/${CHISEL_SERVICE_NAME}.service"
   systemctl daemon-reload
 
+  remove_nginx_main_include
   rm -f "$NGINX_CONF" "$NGINX_SITE_LINK" "$NGINX_SITE"
   nginx -t >/dev/null 2>&1 && systemctl restart nginx || true
 

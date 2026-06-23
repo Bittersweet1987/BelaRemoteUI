@@ -48,6 +48,8 @@ Pro BELABOX-Profil erzeugt der VPS:
 
 Wenn auf dem VPS bereits Nginx oder eine RTMP-Nginx-Konfiguration vorhanden ist, sucht BelaRemoteUI automatisch einen freien HTTP-Port ab `8088`. Ist `8088` bereits belegt, wird der nächste freie Port probiert. Vorhandene Nginx-Dateien wie `sites-enabled/default` bleiben dann unangetastet. Wenn du bewusst einen bestimmten HTTP-Port möchtest, kannst du `--public-port PORT` verwenden. Ist dieser Port bereits belegt, bricht das Script mit einer klaren Meldung ab.
 
+Bei Custom-Nginx-Setups, die weder `conf.d` noch `sites-enabled` laden, ergänzt BelaRemoteUI einmalig einen eigenen Include im `http {}`-Block von `/etc/nginx/nginx.conf`. Die eigentliche Remote-Konfiguration bleibt weiterhin in einer separaten BelaRemoteUI-Datei und wird bei `--uninstall` wieder entfernt.
+
 BelaRemoteUI aktiviert UFW nicht automatisch. Falls UFW bereits aktiv ist, ergänzt das Script nur fehlende BelaRemoteUI-Regeln für den HTTP-Port und den Chisel-Port. Bereits vorhandene Regeln werden nicht überschrieben und nicht als BelaRemoteUI-Regeln markiert. Bei einer kompletten Deinstallation werden nur die Regeln entfernt, die BelaRemoteUI selbst neu angelegt hat.
 
 Bestehende Dienste wie RTMP auf `1935/tcp`, eine Statistikseite auf `8080/tcp` oder andere eigene Ports bleiben deine eigenen Firewall-Regeln und werden nicht verändert.
