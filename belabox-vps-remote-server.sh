@@ -830,6 +830,89 @@ maybe_reboot() {
   fi
 }
 
+print_profile_summary() {
+  local profile_dir public_url public_token tunnel_auth remote_port public_host_value
+
+  profile_dir="$(profile_dir "$PROFILE")"
+  public_url="$(cat "${profile_dir}/public_url")"
+  public_token="$(cat "${profile_dir}/public_token")"
+  tunnel_auth="$(cat "${profile_dir}/tunnel_auth")"
+  remote_port="$(cat "${profile_dir}/remote_port")"
+  public_host_value="$(public_host)"
+
+  cat <<EOF
+
+==================================================
+  VPS-EMPFANG IST BEREIT
+==================================================
+
+Profil:
+  ${PROFILE}
+
+Feste Remote-URL:
+  ${public_url}
+
+Token fuer externe Widgets:
+  ${public_token}
+
+Widget/API-URL mit Token:
+  http://${public_host_value}$([ "$PUBLIC_PORT" = "80" ] || printf ':%s' "$PUBLIC_PORT")/?token=${public_token}
+
+WebSocket-URL ohne Cookie:
+  ws://${public_host_value}$([ "$PUBLIC_PORT" = "80" ] || printf ':%s' "$PUBLIC_PORT")/?token=${public_token}
+
+Chisel-Tunnel-Port:
+  ${TUNNEL_SERVER_PORT}/tcp
+
+Interner VPS-Port fuer dieses Profil:
+  ${remote_port}/tcp
+
+Tunnel-Token:
+  ${tunnel_auth}
+
+Naechster Schritt auf der BELABOX:
+  curl -fsSL ${CLIENT_SCRIPT_URL} | sudo bash -s -- --vps ${public_host_value} --tunnel-server-port ${TUNNEL_SERVER_PORT} --tunnel-auth ${tunnel_auth} --remote-port ${remote_port} --public-url ${public_url}
+
+Wichtig: Diese komplette Curl-Zeile auf der BELABOX ausfuehren.
+
+Dieses Profil loeschen:
+  curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash -s -- --delete-profile ${PROFILE}
+==================================================
+EOF
+}
+
+ask_create_another_profile() {
+  local answer
+
+  if [ ! -r /dev/tty ]; then
+    return 1
+  fi
+
+  read -rp "Vor einem moeglichen Reboot ein weiteres BELABOX-Profil anlegen? [j/N]: " answer < /dev/tty
+  case "$answer" in
+    y|Y|yes|YES|j|J|ja|JA) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+reset_profile_inputs_for_next_profile() {
+  PROFILE=""
+  PUBLIC_PATH=""
+  TUNNEL_AUTH=""
+  REMOTE_PORT=""
+  REGENERATE_LINK="0"
+}
+
+create_current_profile() {
+  prepare_profile
+  write_chisel_authfile
+  write_chisel_service
+  write_nginx_config
+  configure_firewall
+  write_status_helper
+  print_profile_summary
+}
+
 if [ "$ACTION" = "uninstall" ]; then
   uninstall_all
   exit 0
@@ -854,64 +937,21 @@ if [ "$ACTION" = "delete-profile" ]; then
   exit 0
 fi
 
-prepare_profile
-write_chisel_authfile
-write_chisel_service
-write_nginx_config
-configure_firewall
-write_status_helper
+create_current_profile
 
-PROFILE_DIR="$(profile_dir "$PROFILE")"
-PUBLIC_URL="$(cat "${PROFILE_DIR}/public_url")"
-PUBLIC_TOKEN="$(cat "${PROFILE_DIR}/public_token")"
-TUNNEL_AUTH="$(cat "${PROFILE_DIR}/tunnel_auth")"
-REMOTE_PORT="$(cat "${PROFILE_DIR}/remote_port")"
-PUBLIC_HOST="$(public_host)"
+while ask_create_another_profile; do
+  reset_profile_inputs_for_next_profile
+  create_current_profile
+done
 
 cat <<EOF
 
-==================================================
-  VPS-EMPFANG IST BEREIT
-==================================================
-
-Profil:
-  ${PROFILE}
-
-Feste Remote-URL:
-  ${PUBLIC_URL}
-
-Token fuer externe Widgets:
-  ${PUBLIC_TOKEN}
-
-Widget/API-URL mit Token:
-  http://${PUBLIC_HOST}$([ "$PUBLIC_PORT" = "80" ] || printf ':%s' "$PUBLIC_PORT")/?token=${PUBLIC_TOKEN}
-
-WebSocket-URL ohne Cookie:
-  ws://${PUBLIC_HOST}$([ "$PUBLIC_PORT" = "80" ] || printf ':%s' "$PUBLIC_PORT")/?token=${PUBLIC_TOKEN}
-
-Chisel-Tunnel-Port:
-  ${TUNNEL_SERVER_PORT}/tcp
-
-Interner VPS-Port fuer dieses Profil:
-  ${REMOTE_PORT}/tcp
-
-Tunnel-Token:
-  ${TUNNEL_AUTH}
-
-Naechster Schritt auf der BELABOX:
-  curl -fsSL ${CLIENT_SCRIPT_URL} | sudo bash -s -- --vps ${PUBLIC_HOST} --tunnel-server-port ${TUNNEL_SERVER_PORT} --tunnel-auth ${TUNNEL_AUTH} --remote-port ${REMOTE_PORT} --public-url ${PUBLIC_URL}
-
-Wichtig: Diese komplette Curl-Zeile auf der BELABOX ausfuehren.
-
-Weitere Profile anlegen:
+Weitere Profile spaeter anlegen:
   curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash
 
 Profile anzeigen:
   belabox-remote-vps-status
   curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash -s -- --list
-
-Profil loeschen:
-  curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash -s -- --delete-profile ${PROFILE}
 
 Komplett entfernen:
   curl -fsSL ${SERVER_SCRIPT_URL} | sudo bash -s -- --uninstall

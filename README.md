@@ -64,6 +64,8 @@ curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/b
 
 Das Script fragt nach einem Profilnamen. Dieser Name dient nur zur Verwaltung auf dem VPS, zum Beispiel `kamera1`, `eventbox` oder `rucksack`.
 
+Nach jedem angelegten Profil fragt das VPS-Script, ob vor dem Reboot noch ein weiteres BELABOX-Profil erstellt werden soll. Wenn du `j` oder `y` auswählst, gibst du direkt den nächsten Profilnamen ein. So kannst du mehrere BELABOXen in einem Installationsdurchlauf vorbereiten.
+
 Nach der Installation zeigt das VPS-Script alle wichtigen Daten an:
 
 - feste Remote-URL
@@ -96,7 +98,9 @@ Beide Scripts fragen am Ende, ob das jeweilige System neu gestartet werden soll.
 
 ### Mehrere BELABOXen
 
-Für jede weitere BELABOX startest du das VPS-Script erneut und gibst einen neuen Profilnamen ein:
+Für jede weitere BELABOX kannst du direkt während der ersten Installation ein weiteres Profil anlegen. Das VPS-Script fragt nach jedem Profil, ob vor dem Reboot noch ein weiteres BELABOX-Profil erstellt werden soll.
+
+Später kannst du jederzeit erneut das VPS-Script starten und einen neuen Profilnamen eingeben:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Bittersweet1987/BelaRemoteUI/main/belabox-vps-remote-server.sh | sudo bash
